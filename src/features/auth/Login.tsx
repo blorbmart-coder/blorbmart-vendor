@@ -6,6 +6,7 @@ import { BlorbButton, TextButton } from '../../components/Button'
 import { useValidation, Validate, VendorField } from '../../components/Field'
 import { FadeSlideIn } from '../../components/motion'
 import { toast } from '../../components/overlay'
+import { takeRefusal } from '../../lib/authState'
 import { authCode, login, sendPasswordReset } from '../../services/vendorAuth'
 import { ErrorNote } from './ErrorNote'
 
@@ -36,7 +37,8 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // A session turned away at start-up says why here.
+  const [error, setError] = useState<string | null>(takeRefusal)
   const form = useValidation<'email' | 'password'>()
 
   const submit = async () => {
@@ -48,7 +50,14 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password)
       const { decideRoute } = await import('../../app/session')
-      nav.reset(await decideRoute())
+      const destination = await decideRoute()
+      if (destination === '/login') {
+        // Signed in, but not as a vendor: decideRoute signed them out again.
+        setError(takeRefusal() ?? readable(null))
+        setBusy(false)
+        return
+      }
+      nav.reset(destination)
     } catch (e) {
       setError(readable(authCode(e)))
       setBusy(false)

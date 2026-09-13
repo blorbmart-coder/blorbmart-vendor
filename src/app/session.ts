@@ -1,7 +1,9 @@
 import { signOut as firebaseSignOut } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
 import { statusRepo } from '../data/statusRepo'
 import { storeRepo } from '../data/storeRepo'
-import { withTimeout } from '../lib/authState'
+import { refuseSession, withTimeout } from '../lib/authState'
+import { db } from '../lib/db'
 import { auth } from '../lib/firebase'
 import { removePush } from '../lib/push'
 
@@ -23,15 +25,51 @@ export type Destination = '/login' | '/onboarding' | '/pending' | '/'
  * request failed; routing both through one decision closes that gap.
  */
 export async function decideRoute(): Promise<Destination> {
-  if (!auth.currentUser) return '/login'
+  const user = auth.currentUser
+  if (!user) return '/login'
   try {
-    await Promise.all([withTimeout(storeRepo.start(), 8000, undefined), statusRepo.start()])
+    const [role] = await Promise.all([
+      withTimeout<string | undefined>(accountRole(user.uid), 8000, undefined),
+      withTimeout(storeRepo.start(), 8000, undefined),
+      statusRepo.start(),
+    ])
+    // Any Blorbmart account can sign in with Firebase. A rider or shopper let
+    // through here reaches onboarding, gets a store created for them, and then
+    // has every product refused by the rules, which require role 'vendor'.
+    if (role !== undefined && role !== 'vendor') {
+      refuseSession(refusalFor(role))
+      await signOut().catch(() => firebaseSignOut(auth))
+      return '/login'
+    }
     if (storeRepo.known && storeRepo.needsOnboarding) return '/onboarding'
     if (!statusRepo.isApproved) return '/pending'
     return '/'
   } catch (error) {
     console.warn('boot failed', error)
     return auth.currentUser ? '/' : '/login'
+  }
+}
+
+/**
+ * The account's role as the security rules read it, '' when there is no users
+ * document. A read that fails or times out comes back undefined and turns
+ * nobody away: a vendor starting on bad signal is let through, and the rules
+ * still refuse any write the account is not entitled to.
+ */
+async function accountRole(uid: string): Promise<string> {
+  const snap = await getDoc(doc(db, 'users', uid))
+  return String(snap.data()?.role ?? '')
+}
+
+/** Why a non-vendor account was signed straight back out. */
+function refusalFor(role: string): string {
+  switch (role) {
+    case 'rider':
+      return 'This is a Blorbmart rider account. Vendor accounts are separate: register your business with a different email.'
+    case 'buyer':
+      return 'This is a Blorbmart shopper account. Vendor accounts are separate: register your business with a different email.'
+    default:
+      return 'This account is not registered as a vendor. Register your business to sell on Blorbmart.'
   }
 }
 

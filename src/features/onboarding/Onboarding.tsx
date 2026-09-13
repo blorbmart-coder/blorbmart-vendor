@@ -9,6 +9,7 @@ import { CenterSpinner } from '../../components/Spinner'
 import { BUSINESS, type StoreProfile } from '../../data/models'
 import { storeRepo } from '../../data/storeRepo'
 import { pickImages, prepareImage, uploadImage, UploadError } from '../../lib/cloudinary'
+import { writeFailure } from '../../lib/db'
 import { dropPin, LocationError } from '../../lib/geo'
 import { haptic } from '../../lib/haptics'
 import { StepBasics, StepBranding, StepBusinessType, StepFulfilment, StepHours, StepLocation } from './Steps'
@@ -151,9 +152,9 @@ function Flow({
           welcome: `${latest.current.name} is live. Add your first ${BUSINESS[latest.current.type].itemNoun} to start selling.`,
         },
       })
-    } catch {
+    } catch (error) {
       setSaving(false)
-      toast('Could not finish setup. Try again.', { tone: 'danger' })
+      toast(writeFailure(error, 'Could not finish setup. Try again.'), { tone: 'danger' })
     }
   }
 
@@ -167,8 +168,8 @@ function Flow({
       // A live store keeps its finished marker; only one still being set up
       // records which step to resume on.
       await storeRepo.saveStep(alreadyLive ? latest.current.onboardingStep : step + 1, latest.current)
-    } catch {
-      toast('Could not save that. Check your connection.', { tone: 'danger' })
+    } catch (error) {
+      toast(writeFailure(error, 'Could not save that. Check your connection.'), { tone: 'danger' })
       setSaving(false)
       return
     }

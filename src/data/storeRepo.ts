@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -14,6 +15,7 @@ import {
 import { useSyncExternalStore } from 'react'
 import { db } from '../lib/db'
 import { auth } from '../lib/firebase'
+import { asString } from '../lib/format'
 import type { University } from '../services/universities'
 import { menuRepo } from './menuRepo'
 import { BUSINESS, blankStore, storeFromDoc, storeToFirestore, type BusinessType, type StoreProfile } from './models'
@@ -136,8 +138,21 @@ class StoreRepo {
       return store
     }
 
+    // The campus was chosen at signup and lives on the vendor document. A store
+    // created without it could not list a single product: the rules refuse
+    // any product that carries no campus.
+    const vendor = (await getDoc(doc(db, 'vendors', uid))).data() ?? {}
     const ref = doc(collection(db, 'stores'))
-    const store: StoreProfile = { ...blankStore, id: ref.id, vendorId: uid, name: businessName, type, isActive: false }
+    const store: StoreProfile = {
+      ...blankStore,
+      id: ref.id,
+      vendorId: uid,
+      name: businessName,
+      type,
+      universityId: asString(vendor.universityId),
+      universityName: asString(vendor.universityName),
+      isActive: false,
+    }
     await setDoc(ref, {
       ...storeToFirestore(store),
       rating: 0,

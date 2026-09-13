@@ -18,6 +18,23 @@ const subscribe = (fn: () => void) => {
 
 export const useUser = () => useSyncExternalStore(subscribe, () => user)
 
+/**
+ * Why the last session was turned away, held for the sign-in screen to show
+ * once. Kept here rather than in app/session so that screen can read it
+ * without pulling Firestore into its chunk.
+ */
+let refusal: string | null = null
+
+export const refuseSession = (reason: string) => {
+  refusal = reason
+}
+
+export function takeRefusal(): string | null {
+  const reason = refusal
+  refusal = null
+  return reason
+}
+
 /** Resolves once Firebase has restored (or failed to restore) the session. */
 export const authReady = () => auth.authStateReady()
 

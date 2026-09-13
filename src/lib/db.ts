@@ -14,3 +14,14 @@ import { app } from './firebase'
  * the splash — never pull the Firestore SDK in with them.
  */
 export const db = getFirestore(app)
+
+/**
+ * What to tell a vendor when a write fails. A refusal by the security rules
+ * gets its own sentence, because "check your connection" sends them off to
+ * retry something that better signal will never fix.
+ */
+export function writeFailure(error: unknown, fallback: string): string {
+  const code = (error as { code?: unknown } | null)?.code
+  if (code === 'permission-denied') return 'Blorbmart would not accept that. This account is not set up as a vendor.'
+  return fallback
+}

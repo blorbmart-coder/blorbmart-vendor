@@ -16,7 +16,7 @@ import { ErrorNote } from './ErrorNote'
 function readable(code: string | null, fallback: string): string {
   switch (code) {
     case 'email-already-in-use':
-      return 'That email already has an account. Sign in instead.'
+      return 'That email already has a Blorbmart account. If it is a rider or shopper account, use a different email for your business.'
     case 'invalid-email':
       return 'That email address does not look right.'
     case 'weak-password':

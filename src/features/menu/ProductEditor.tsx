@@ -29,8 +29,10 @@ import {
 } from '../../data/models'
 import { useStore } from '../../data/storeRepo'
 import { pickImages, prepareImage, uploadImage, UploadError } from '../../lib/cloudinary'
+import { writeFailure } from '../../lib/db'
 import { money, parseAmount, titleCase } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
+import { showCampusSheet } from '../profile/CampusSheet'
 import { showAddonEditor } from './AddonEditor'
 
 /**
@@ -162,6 +164,13 @@ function Editor({ existing, store }: { existing: ProductDraft | null; store: Sto
       toast(errors[0], { tone: 'danger' })
       return
     }
+    // Every product carries its store's campus, and buyers only see their own
+    // campus's items. The rules refuse one without it, so ask for it first.
+    if (!store.universityId) {
+      toast('Choose your campus first. It decides which students see this.', { tone: 'danger' })
+      void showCampusSheet()
+      return
+    }
     setSaving(true)
     try {
       await menuRepo.save(draft, store)
@@ -170,9 +179,10 @@ function Editor({ existing, store }: { existing: ProductDraft | null; store: Sto
         tone: 'success',
       })
       nav.pop(true)
-    } catch {
+    } catch (error) {
+      console.warn('product save failed', error)
       setSaving(false)
-      toast('Could not save that. Check your connection.', { tone: 'danger' })
+      toast(writeFailure(error, 'Could not save that. Check your connection.'), { tone: 'danger' })
     }
   }
 
@@ -189,8 +199,8 @@ function Editor({ existing, store }: { existing: ProductDraft | null; store: Sto
       await menuRepo.remove(draft.id)
       toast('Deleted')
       nav.pop(true)
-    } catch {
-      toast('Could not delete that.', { tone: 'danger' })
+    } catch (error) {
+      toast(writeFailure(error, 'Could not delete that.'), { tone: 'danger' })
     }
   }
 

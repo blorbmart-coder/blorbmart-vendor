@@ -296,8 +296,9 @@ export function storeToFirestore(s: StoreProfile): DocumentData {
     address: s.address,
     city: s.city,
     state: s.state,
-    universityId: s.universityId,
-    universityName: s.universityName,
+    // Never written empty. Onboarding saves the whole draft at every step, and
+    // a draft read before the campus was set would otherwise wipe it.
+    ...(s.universityId ? { universityId: s.universityId, universityName: s.universityName } : {}),
     ...(s.latitude != null && s.longitude != null ? { location: new GeoPoint(s.latitude, s.longitude) } : {}),
     openingHour: s.openingHour,
     closingHour: s.closingHour,
