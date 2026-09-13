@@ -1,0 +1,521 @@
+@import "tailwindcss";
+@import "@fontsource-variable/plus-jakarta-sans";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   BLORBMART — tokens, ported one-for-one from the Flutter app's
+   blorb_colors.dart, blorb_tokens.dart and blorb_type.dart.
+
+   Shadows are converted, not copied: Flutter's blurRadius r is a Gaussian of
+   sigma 0.577r + 0.5, and a CSS blur of B is a sigma of B/2, so each blur
+   here is 1.155r + 1. That is what makes a card sit at the same depth on
+   both platforms.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-raleway: "Raleway", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-brand: #1f77f1;
+  --color-brand-pressed: #1560d6;
+  --color-brand-hover: #3d8bf5;
+  --color-brand-soft: #e7f0fe;
+  --color-brand-softer: #f3f8ff;
+  --color-brand-ink: #0b3e86;
+
+  --color-appetite: #ff5a1f;
+  --color-appetite-deep: #e04212;
+  --color-appetite-soft: #ffede6;
+  --color-amber: #ffb020;
+  --color-amber-soft: #fff6e5;
+  --color-amber-ink: #8a5d00;
+
+  --color-ink: #0b1220;
+  --color-ink-strong: #16202f;
+  --color-ink-body: #39455a;
+  --color-ink-muted: #6b7891;
+  --color-ink-faint: #9aa6bc;
+  --color-ink-disabled: #bfc8d8;
+
+  --color-canvas: #f6f8fc;
+  --color-surface: #ffffff;
+  --color-sunken: #f1f4f9;
+  --color-line: #e9edf4;
+  --color-line-strong: #d7deea;
+
+  --color-success: #0fa968;
+  --color-success-soft: #e6f7f0;
+  --color-warning: #f79009;
+  --color-warning-soft: #fff6e5;
+  --color-warning-ink: #9a5b00;
+  --color-danger: #e5484d;
+  --color-danger-soft: #fdedee;
+
+  --color-restaurants: #ff5a1f;
+  --color-restaurants-soft: #ffefe8;
+  --color-pharmacy: #0fa968;
+  --color-pharmacy-soft: #e6f7f0;
+  --color-events: #7c5cff;
+  --color-events-soft: #f0ebff;
+
+  --color-shimmer: #edf1f7;
+  --color-shimmer-hi: #f8fafd;
+  --color-scrim: rgb(16 24 40 / 0.4);
+
+  /* The wallet screens predate the design system and keep their own brand. */
+  --color-wallet: #5156f1;
+
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-2xl: 28px;
+  --radius-sheet: 30px;
+
+  --shadow-xs: 0 1px 3.3px rgb(16 24 40 / 0.04);
+  --shadow-sm: 0 2px 10.2px rgb(16 24 40 / 0.059), 0 1px 3.3px rgb(16 24 40 / 0.031);
+  --shadow-md: 0 8px 24px rgb(16 24 40 / 0.078), 0 2px 5.6px rgb(16 24 40 / 0.039);
+  --shadow-lg: 0 16px 42.6px rgb(16 24 40 / 0.102), 0 4px 10.2px rgb(16 24 40 / 0.051);
+  --shadow-lift: 0 -6px 33.3px rgb(16 24 40 / 0.122);
+  --shadow-brand: 0 8px 24px rgb(31 119 241 / 0.302);
+  --shadow-appetite: 0 8px 24px rgb(255 90 31 / 0.302);
+
+  --ease-emph: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emph-in: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-emph-out: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-snappy: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --ease-springy: cubic-bezier(0.18, 1.5, 0.4, 1);
+  --ease-gentle: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: rgb(31 119 241 / 0.18);
+  }
+  input,
+  textarea,
+  select {
+    caret-color: var(--color-brand);
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="switch"],
+  label[for] {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+  }
+  img {
+    -webkit-user-drag: none;
+  }
+}
+
+/* ── Frame ───────────────────────────────────────────────────────────────
+   The app is a phone layout, as it is on Android. On a laptop it stays one:
+   a centred column the width of a large phone, so every screen reads exactly
+   as it was designed instead of stretching a card list across 1900px. */
+.app-frame {
+  position: fixed;
+  inset: 0;
+  margin-inline: auto;
+  max-width: 640px;
+  overflow: hidden;
+  background: var(--color-canvas);
+  isolation: isolate;
+}
+@media (min-width: 700px) {
+  body {
+    background: #e6eaf1;
+  }
+  .app-frame {
+    box-shadow: 0 0 0 1px var(--color-line), 0 24px 64px rgb(16 24 40 / 0.08);
+  }
+}
+
+@layer components {
+  /* ── Typography (BlorbText) ─────────────────────────────────────────── */
+  .t-display-lg { font-size: 38px; font-weight: 800; line-height: 1.08; letter-spacing: -1px; color: var(--color-ink); }
+  .t-display-md { font-size: 30px; font-weight: 800; line-height: 1.12; letter-spacing: -0.7px; color: var(--color-ink); }
+  .t-display-sm { font-size: 26px; font-weight: 800; line-height: 1.15; letter-spacing: -0.5px; color: var(--color-ink); }
+  .t-h1 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.4px; color: var(--color-ink); }
+  .t-h2 { font-size: 19px; font-weight: 700; line-height: 1.25; letter-spacing: -0.3px; color: var(--color-ink); }
+  .t-h3 { font-size: 17px; font-weight: 700; line-height: 1.3; letter-spacing: -0.2px; color: var(--color-ink); }
+  .t-h4 { font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--color-ink); }
+  .t-body-lg { font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--color-ink-body); }
+  .t-body { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--color-ink-body); }
+  .t-body-sm { font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--color-ink-muted); }
+  .t-label-lg { font-size: 15px; font-weight: 700; line-height: 1.2; color: var(--color-ink); }
+  .t-label { font-size: 13.5px; font-weight: 700; line-height: 1.2; color: var(--color-ink); }
+  .t-label-sm { font-size: 12px; font-weight: 700; line-height: 1.2; letter-spacing: 0.1px; color: var(--color-ink); }
+  .t-caption { font-size: 12px; font-weight: 600; line-height: 1.35; color: var(--color-ink-muted); }
+  .t-caption-sm { font-size: 11px; font-weight: 600; line-height: 1.3; color: var(--color-ink-faint); }
+  .t-overline { font-size: 11px; font-weight: 800; line-height: 1.2; letter-spacing: 0.8px; color: var(--color-ink-muted); }
+  .t-price-lg { font-size: 24px; font-weight: 800; letter-spacing: -0.6px; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+  .t-price { font-size: 15px; font-weight: 800; letter-spacing: -0.2px; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+  .t-price-sm { font-size: 13px; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+  .t-price-struck {
+    font-size: 12.5px; font-weight: 600; color: var(--color-ink-faint); font-variant-numeric: tabular-nums;
+    text-decoration: line-through; text-decoration-color: var(--color-ink-faint);
+  }
+
+  .bg-brand-gradient {
+    background-image: linear-gradient(to bottom right, #2f86f7 0%, #1f77f1 45%, #1560d6 100%);
+  }
+  .bg-appetite-gradient {
+    background-image: linear-gradient(to right, #ff7a3d, #ff5a1f);
+  }
+
+  /* ── PressScale ─────────────────────────────────────────────────────────
+     Down in 90ms, back with a snappy overshoot in 200ms. Pure CSS, so a
+     press costs a composited transform and no JavaScript at all. A press on
+     something interactive inside (a switch in a card) does not also squash
+     the card, which is what Flutter's gesture arena gives for free. */
+  .press {
+    --press-rest: opacity 200ms linear, box-shadow 200ms var(--ease-emph), background-color 200ms var(--ease-emph),
+      border-color 200ms var(--ease-emph), color 200ms var(--ease-emph);
+    transition: transform 200ms var(--ease-snappy), var(--press-rest);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .press:not(:disabled):not([aria-disabled="true"]):active:not(
+      :has(.press:active, button:active, input:active, textarea:active, select:active, a:active, [role="switch"]:active)
+    ) {
+    transform: scale(var(--ps, 0.965));
+    transition: transform 90ms ease-out, var(--press-rest);
+  }
+
+  /* ── InkWell ──────────────────────────────────────────────────────────── */
+  .ink {
+    position: relative;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  .ink::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ink, rgb(31 119 241 / 0.07));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease-out;
+  }
+  .ink:not(:disabled):not([aria-disabled="true"]):active::after {
+    opacity: 1;
+    transition-duration: 40ms;
+  }
+  @media (hover: hover) {
+    .ink:not(:disabled):not([aria-disabled="true"]):hover::after {
+      opacity: 0.55;
+    }
+  }
+
+  /* ── FadeSlideIn ─────────────────────────────────────────────────────────
+     Opacity and translate only; the offset is a fraction of the element's
+     own size, as FractionalTranslation is. Individual transform properties,
+     so it never fights PressScale's transform. */
+  .fsi {
+    animation: fsi var(--fsi-dur, 420ms) var(--fsi-ease, var(--ease-emph)) var(--fsi-delay, 0ms) both;
+  }
+
+  .swap-in {
+    animation: swap-in 280ms var(--ease-springy) both;
+  }
+
+  /* ── LivePulse ────────────────────────────────────────────────────────── */
+  .live-pulse {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: calc(var(--s) * 2.6);
+    height: calc(var(--s) * 2.6);
+  }
+  .live-pulse::before,
+  .live-pulse::after {
+    content: "";
+    grid-area: 1 / 1;
+    width: var(--s);
+    height: var(--s);
+    border-radius: 999px;
+    background: var(--c);
+  }
+  .live-pulse::before {
+    animation: pulse-ring 1600ms linear infinite;
+  }
+
+  /* ── Skeleton ─────────────────────────────────────────────────────────
+     One composited sweep per block, all on the same clock because they all
+     start with the page — the web's version of SkeletonHost's single ticker. */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-shimmer);
+    isolation: isolate;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--color-shimmer-hi), transparent);
+    translate: -100% 0;
+    animation: shimmer 1250ms linear infinite;
+  }
+
+  /* ── CircularProgressIndicator ───────────────────────────────────────── */
+  .spinner {
+    animation: spin-rotate 1568ms linear infinite;
+    flex: none;
+  }
+  .spinner .arc {
+    animation: spin-dash 1333ms ease-in-out infinite;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scroll-y {
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* ── Page stack ─────────────────────────────────────────────────────────
+     The shared-axis transition from blorb_theme.dart: the incoming page slides
+     4.5% and fades up; the page beneath it dims to 55% and drifts 3.5% back.
+     A covered page is kept alive (scroll, listeners, half-typed forms) and
+     stops painting once it is fully hidden. */
+  .layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-canvas);
+    transition: opacity 300ms var(--ease-emph), translate 300ms var(--ease-emph), visibility 0s;
+  }
+  .layer[data-covered] {
+    opacity: 0.55;
+    translate: -3.5% 0;
+    visibility: hidden;
+    transition-delay: 0s, 0s, 300ms;
+  }
+  .layer[data-state="enter"] {
+    animation: page-in-move 300ms var(--ease-emph) both, page-in-fade 110ms linear both;
+  }
+  .layer[data-state="exit"] {
+    pointer-events: none;
+    animation: page-out-move 300ms var(--ease-emph-in) both, page-out-fade 300ms linear both;
+  }
+  .layer[data-state="fade"] {
+    animation: page-in-fade 420ms var(--ease-emph) both;
+  }
+
+  /* ── Overlays ─────────────────────────────────────────────────────────── */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--color-scrim);
+    animation: fade-in 250ms linear both;
+  }
+  .scrim[data-closing] {
+    animation: fade-out 200ms linear both;
+  }
+  .sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-inline: auto;
+    max-width: 640px;
+    max-height: 92%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-surface);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    animation: sheet-in 250ms cubic-bezier(0, 0, 0.2, 1) both;
+    will-change: translate;
+  }
+  .sheet[data-closing] {
+    animation: sheet-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+  .sheet[data-dragging] {
+    animation: none;
+  }
+  .dialog-in {
+    animation: fade-in 150ms ease-out both;
+  }
+  .dialog-in[data-closing] {
+    animation: fade-out 75ms linear both;
+  }
+  .toast {
+    animation: toast-in 250ms var(--ease-emph) both;
+  }
+  .toast[data-closing] {
+    animation: fade-out 150ms linear both;
+  }
+  .menu-pop {
+    transform-origin: top right;
+    animation: menu-pop 180ms var(--ease-emph) both;
+  }
+
+  /* ── Material Switch (M3, themed) ─────────────────────────────────────── */
+  .m3-switch {
+    display: inline-grid;
+    place-items: center;
+    width: 60px;
+    height: 48px;
+    flex: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    touch-action: manipulation;
+  }
+  .m3-switch .track {
+    position: relative;
+    width: 52px;
+    height: 32px;
+    border-radius: 16px;
+    background: var(--track-off, var(--color-line-strong));
+    transition: background-color 150ms linear;
+  }
+  .m3-switch[aria-checked="true"] .track {
+    background: var(--track-on, var(--color-brand));
+  }
+  .m3-switch .thumb {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--thumb-off, #fff);
+    translate: 8px -50%;
+    transition: translate 250ms var(--ease-emph), width 250ms var(--ease-emph), height 250ms var(--ease-emph),
+      background-color 150ms linear;
+  }
+  .m3-switch[aria-checked="true"] .thumb {
+    width: 24px;
+    height: 24px;
+    translate: 24px -50%;
+    background: var(--thumb-on, #fff);
+  }
+  .m3-switch:not(:disabled):active .thumb {
+    width: 28px;
+    height: 28px;
+    translate: 2px -50%;
+  }
+  .m3-switch[aria-checked="true"]:not(:disabled):active .thumb {
+    translate: 22px -50%;
+  }
+}
+
+@keyframes fsi {
+  from {
+    opacity: 0;
+    translate: var(--fsi-x, 0) var(--fsi-y, 6%);
+    scale: var(--fsi-s, 1);
+  }
+}
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    translate: var(--swap-x, 0) var(--swap-y, 45%);
+  }
+}
+@keyframes pulse-ring {
+  from { opacity: 0.35; scale: 1; }
+  to { opacity: 0; scale: 2.6; }
+}
+@keyframes shimmer {
+  to { translate: 100% 0; }
+}
+@keyframes spin-rotate {
+  to { rotate: 360deg; }
+}
+@keyframes spin-dash {
+  0% { stroke-dasharray: 1 150; stroke-dashoffset: 0; }
+  50% { stroke-dasharray: 75 150; stroke-dashoffset: -25; }
+  100% { stroke-dasharray: 75 150; stroke-dashoffset: -99; }
+}
+@keyframes page-in-move {
+  from { translate: 4.5% 0; }
+}
+@keyframes page-in-fade {
+  from { opacity: 0; }
+}
+@keyframes page-out-move {
+  to { translate: 4.5% 0; }
+}
+@keyframes page-out-fade {
+  0%, 62% { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+@keyframes sheet-in {
+  from { translate: 0 100%; }
+}
+@keyframes sheet-out {
+  to { translate: 0 100%; }
+}
+@keyframes toast-in {
+  from { opacity: 0; translate: 0 14px; scale: 0.97; }
+}
+@keyframes menu-pop {
+  from { opacity: 0; scale: 0.9; }
+}
+
+/* Every animation honours the platform "reduce motion" setting by collapsing
+   to its end state — except the progress spinner, which is information, not
+   decoration, as it is in Flutter. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.spinner):not(.arc),
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}

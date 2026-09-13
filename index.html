@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- resizes-content: on Android the keyboard shrinks the layout instead of
+         sliding over it, which is what keeps a focused field and the save bar
+         beneath it on screen. viewport-fit=cover lets an installed app paint
+         under the notch; safe-area padding keeps content out of it. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="color-scheme" content="light" />
+    <title>Blorbmart Vendor</title>
+    <meta name="description" content="Manage your Blorbmart store — orders, products, and earnings." />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Vendor" />
+
+    <!-- The first thing a signed-in vendor's browser does is talk to these.
+         Opening the connections while the bundle is still downloading takes a
+         round trip off the first real screen. -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://blorbmart-tr1i.onrender.com" crossorigin />
+
+    <!-- The splash is plain HTML so it is on screen before any script has
+         downloaded. main.tsx fades it out once the app knows where to go —
+         the same routing decision the Flutter splash makes. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #fff; }
+      #boot {
+        position: fixed; inset: 0; z-index: 1000; background: #fff;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-family: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        transition: opacity 420ms cubic-bezier(0.2, 0, 0, 1);
+      }
+      #boot.out { opacity: 0; pointer-events: none; }
+      #boot .mark {
+        width: 88px; height: 88px; box-sizing: border-box; padding: 12px; border-radius: 22px; background: #fff;
+        box-shadow: 0 8px 24px rgb(16 24 40 / 0.08), 0 2px 6px rgb(16 24 40 / 0.04);
+        animation: boot-fade 800ms linear both, boot-scale 800ms cubic-bezier(0.18, 1.5, 0.4, 1) both;
+      }
+      #boot .mark img { width: 64px; height: 64px; display: block; }
+      #boot .name { margin-top: 20px; font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.4px; color: #0b1220; }
+      #boot .sub { margin-top: 4px; font-size: 13px; font-weight: 500; line-height: 1.45; color: #6b7891; }
+      #boot svg { margin-top: 32px; animation: boot-rotate 1568ms linear infinite; }
+      #boot svg .arc { animation: boot-dash 1333ms ease-in-out infinite; }
+      @keyframes boot-fade { from { opacity: 0; } }
+      @keyframes boot-scale { from { transform: scale(0.7); } }
+      @keyframes boot-rotate { to { transform: rotate(360deg); } }
+      @keyframes boot-dash {
+        0% { stroke-dasharray: 1 150; stroke-dashoffset: 0; }
+        50% { stroke-dasharray: 75 150; stroke-dashoffset: -25; }
+        100% { stroke-dasharray: 75 150; stroke-dashoffset: -99; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="boot" role="status" aria-label="Loading Blorbmart">
+      <div class="mark"><img src="/src/assets/logo-mark.png" alt="" width="64" height="64" /></div>
+      <div class="name">Blorbmart</div>
+      <div class="sub">for vendors</div>
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+        <circle cx="11" cy="11" r="9.9" fill="none" stroke="#f1f4f9" stroke-width="2.2" />
+        <circle class="arc" cx="11" cy="11" r="9.9" fill="none" stroke="#1f77f1" stroke-width="2.2"
+          stroke-linecap="round" pathLength="100" transform="rotate(-90 11 11)" />
+      </svg>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
