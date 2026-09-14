@@ -52,7 +52,19 @@ const EMPTY_TITLE: Record<Stage, string> = {
 function useStage(storeId: string, stage: Stage) {
   const q = useMemo(
     () =>
-      query(collection(db, 'orders'), where('storeId', '==', storeId), where('orderStatus', 'in', STATUSES[stage]), limit(50)),
+      stage === 'newOrder'
+        ? // A checkout draft is written as "placed" before it is paid, so
+          // without the payment filter every unpaid and abandoned basket
+          // would sit here as an order to accept. Later stages only follow
+          // an acceptance, so they need no filter.
+          query(
+            collection(db, 'orders'),
+            where('storeId', '==', storeId),
+            where('orderStatus', '==', 'placed'),
+            where('paymentStatus', '==', 'completed'),
+            limit(50),
+          )
+        : query(collection(db, 'orders'), where('storeId', '==', storeId), where('orderStatus', 'in', STATUSES[stage]), limit(50)),
     [storeId, stage],
   )
   return useLiveDocs(q)
