@@ -23,3 +23,24 @@ export const acceptOrder = (orderId: string) => updateStatus(orderId, 'confirmed
  * refused for every accepted order ("Unsupported status transition").
  */
 export const markReady = (orderId: string) => updateStatus(orderId, 'ready')
+
+let syncing: Promise<void> | null = null
+
+/**
+ * Asks the backend to rewrite this vendor's copies of their open orders.
+ *
+ * The order screens read `vendorOrders`, copies the backend writes when an
+ * order is paid and whenever it moves. Those writes can fail without failing
+ * the payment, so the app asks for a repair once per session. Never throws:
+ * the screens still show every copy that already exists, and a later session
+ * tries again.
+ */
+export function syncOrderCopies(): Promise<void> {
+  syncing ??= http('/api/vendor-orders/sync', { method: 'POST', auth: true }).then(
+    () => undefined,
+    () => {
+      syncing = null
+    },
+  )
+  return syncing
+}

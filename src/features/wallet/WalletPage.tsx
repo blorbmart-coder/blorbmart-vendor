@@ -115,9 +115,16 @@ export default function WalletPage() {
     [],
   )
 
-  const load = useCallback(async (): Promise<void> => {
-    setLoading(true)
-    setError(null)
+  /**
+   * `silent` is the background refresh below: it keeps what is on screen
+   * while it fetches, and a failed attempt leaves the last good figures up
+   * rather than swapping the page for an error.
+   */
+  const load = useCallback(async (silent = false): Promise<void> => {
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+    }
 
     // Status first: an account under review has no wallet to call.
     const uid = auth.currentUser?.uid
@@ -156,7 +163,7 @@ export default function WalletPage() {
         setRecent([])
         setRecentError(txRes.error || 'Failed to load transactions')
       }
-    } else {
+    } else if (!silent) {
       setError(walletRes.error || 'Failed to load wallet')
       setRecent([])
       setRecentError(null)
@@ -167,6 +174,22 @@ export default function WalletPage() {
 
   useEffect(() => {
     void load()
+  }, [load])
+
+  // Money that lands while the vendor is on this screen — an order settling,
+  // a payout completing — appears without a pull or a tap (QA-BM-WEB-002,
+  // item 5): quietly every 30 seconds while the page is in view, and at once
+  // when the vendor comes back to it.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(true)
+    }
+    const timer = window.setInterval(refresh, 30_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [load])
 
   const reloadAfter = (to: string, data?: unknown) => void nav.push(to, data).then(() => load())

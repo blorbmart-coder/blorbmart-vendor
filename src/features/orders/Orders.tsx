@@ -1,5 +1,5 @@
 import { collection, limit, query, where, type DocumentData } from 'firebase/firestore'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AppBar, Page } from '../../components/AppBar'
 import { BlorbButton } from '../../components/Button'
 import { Icon } from '../../components/Icon'
@@ -52,23 +52,33 @@ const EMPTY_TITLE: Record<Stage, string> = {
  * One listener per stage feeds both the tab's count and its list. The
  * Flutter screen opened two per stage, one for each; this is half the reads
  * for the same screen.
+ *
+ * The lists come from `vendorOrders`, the backend's copy of each order for
+ * this store: the customer's name, this store's items and prices, and their
+ * subtotal. Orders themselves carry the buyer's grand total, fees, phone,
+ * address and payment method, and Firestore cannot hide fields of a
+ * document, so reading them showed a vendor all of it (QA-BM-WEB-002, item 2).
  */
 function useStage(storeId: string, stage: Stage) {
   const q = useMemo(
     () =>
       stage === 'newOrder'
-        ? // A checkout draft is written as "placed" before it is paid, so
-          // without the payment filter every unpaid and abandoned basket
-          // would sit here as an order to accept. Later stages only follow
-          // an acceptance, so they need no filter.
+        ? // Copies are only written for paid orders. The payment filter stays
+          // for the one that is not: an order whose payment was reversed after
+          // the fact keeps its copy, and must not sit here as one to accept.
           query(
-            collection(db, 'orders'),
+            collection(db, 'vendorOrders'),
             where('storeId', '==', storeId),
             where('orderStatus', '==', 'placed'),
             where('paymentStatus', '==', 'completed'),
             limit(50),
           )
-        : query(collection(db, 'orders'), where('storeId', '==', storeId), where('orderStatus', 'in', STATUSES[stage]), limit(50)),
+        : query(
+            collection(db, 'vendorOrders'),
+            where('storeId', '==', storeId),
+            where('orderStatus', 'in', STATUSES[stage]),
+            limit(50),
+          ),
     [storeId, stage],
   )
   return useLiveDocs(q)
@@ -269,6 +279,18 @@ function OrderList({ stage, state }: { stage: Stage; state: { docs: LiveDocs | n
 
 const WARN_INK = 'var(--color-warning-ink)'
 
+/** Add-ons arrive as names; older copies may still carry `{ name }` objects. */
+const addonNames = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.map((a) => (typeof a === 'string' ? a : isRecord(a) ? asString(a.name) : '')).filter(Boolean)
+    : []
+
+/**
+ * One order, as the kitchen needs it: who it is for, what to make, what this
+ * store is owed for it, and the one button that moves it on. The customer's
+ * contact details, the delivery fee and the buyer's grand total are the
+ * rider's and the platform's business, and are not on the copy at all.
+ */
 function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage: Stage }) {
   const [busy, setBusy] = useState(false)
   const mounted = useRef(true)
@@ -282,15 +304,8 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
   const orderId = asString(data.orderId, id)
   const shortId = orderId.replace(/ORD/g, '')
   const note = asString(data.customerNote)
-  const phone = asString(data.userPhone)
-  const lines = (Array.isArray(data.lines) ? data.lines : Array.isArray(data.items) ? data.items : []).filter(isRecord)
-  const address = data.address
-  const addressLabel = isRecord(address)
-    ? [asString(address.addressLine1 ?? address.street), asString(address.city)].filter(Boolean).join(', ')
-    : asString(address)
+  const lines = (Array.isArray(data.items) ? data.items : []).filter(isRecord)
   const actionLabel = stage === 'newOrder' ? 'Accept order' : stage === 'preparing' ? 'Mark ready' : null
-  // Only digits and a leading plus reach the dialler.
-  const dial = phone.replace(/[^\d+]/g, '')
 
   const advance = async () => {
     setBusy(true)
@@ -320,13 +335,13 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
             <p className="t-h3">#{shortId.length > 6 ? shortId.slice(-6) : shortId}</p>
             <Pill label={timeAgo(asDate(data.createdAt))} dense />
           </div>
-          <p className="t-body-sm mt-1">{asString(data.userName, 'Customer')}</p>
+          <p className="t-body-sm mt-1">{asString(data.customerName, 'Customer')}</p>
         </div>
         <div className="flex flex-col items-end">
           <p className="t-price" style={{ fontSize: 17 }}>
-            {money(asDouble(data.totalAmount))}
+            {money(asDouble(data.subtotal))}
           </p>
-          <p className="t-caption-sm mt-0.5">{asString(data.paymentMethod, 'paid') === 'wallet' ? 'Wallet' : 'Card'}</p>
+          <p className="t-caption-sm mt-0.5">Your items</p>
         </div>
       </div>
 
@@ -334,12 +349,7 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
 
       <div className="p-4">
         {lines.map((line, i) => {
-          const addons = Array.isArray(line.addons)
-            ? line.addons
-                .filter(isRecord)
-                .map((a) => asString(a.name))
-                .filter(Boolean)
-            : []
+          const addons = addonNames(line.addons)
           const lineNote = asString(line.note)
           return (
             <div key={i} className="mb-2 flex items-start gap-3">
@@ -355,6 +365,7 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
                   </p>
                 )}
               </div>
+              <p className="t-body-sm shrink-0 tabular-nums">{money(asDouble(line.lineTotal))}</p>
             </div>
           )
         })}
@@ -367,40 +378,17 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
             </p>
           </div>
         )}
-
-        {addressLabel && (
-          <div className="mt-3 flex items-start gap-2">
-            <Icon name="outlined/location_on" size={15} color="var(--color-ink-faint)" />
-            <p className="t-caption-sm flex-1">{addressLabel}</p>
-          </div>
-        )}
       </div>
 
-      {(actionLabel || phone) && (
-        <div className="flex items-center gap-3 px-4 pb-4">
-          {phone && (
-            <a
-              href={`tel:${dial}`}
-              title="Call customer"
-              aria-label="Call customer"
-              className="press grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full bg-success-soft"
-              style={{ '--ps': 0.9, border: '1px solid var(--color-line)' } as CSSProperties}
-              onClick={() => haptic.selection()}
-            >
-              <Icon name="round/call" size={20} color="var(--color-success)" />
-            </a>
-          )}
-          {actionLabel && (
-            <div className="min-w-0 flex-1">
-              <BlorbButton
-                label={actionLabel}
-                busy={busy}
-                size="md"
-                kind={stage === 'newOrder' ? 'appetite' : 'brand'}
-                onClick={busy ? null : () => void advance()}
-              />
-            </div>
-          )}
+      {actionLabel && (
+        <div className="px-4 pb-4">
+          <BlorbButton
+            label={actionLabel}
+            busy={busy}
+            size="md"
+            kind={stage === 'newOrder' ? 'appetite' : 'brand'}
+            onClick={busy ? null : () => void advance()}
+          />
         </div>
       )}
 

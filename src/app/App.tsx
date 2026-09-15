@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { BrowserRouter, useLocation } from 'react-router-dom'
+import { GlobalPullToRefresh } from '../components/GlobalPullToRefresh'
 import { OverlayHost } from '../components/overlay'
 import { useUser } from '../lib/authState'
 import { initPush } from '../lib/push'
+import { syncOrderCopies } from '../services/orders'
 import { isPublicPath, parentOf, prefetch, routes, stackKeyOf } from './routes'
 import { StackNavigator, useNav } from './stack'
 
@@ -10,7 +12,8 @@ import { StackNavigator, useNav } from './stack'
  * Watches the session while the app is open: a sign-out in another tab, or
  * an account disabled by an admin, returns this tab to sign-in rather than
  * leaving it on screens whose every request now fails. Registers this
- * browser for order pushes whenever a vendor is signed in.
+ * browser for order pushes whenever a vendor is signed in, and has the
+ * backend repair this vendor's order copies once per session.
  */
 function SessionWatch() {
   const user = useUser()
@@ -25,7 +28,10 @@ function SessionWatch() {
   }, [uid, nav])
 
   useEffect(() => {
-    if (uid) void initPush(() => nav.tab('/orders'))
+    if (uid) {
+      void initPush(() => nav.tab('/orders'))
+      void syncOrderCopies()
+    }
     prefetch(Boolean(uid))
   }, [uid, nav])
 
@@ -40,6 +46,7 @@ export function App() {
           <SessionWatch />
           <OverlayHost />
         </StackNavigator>
+        <GlobalPullToRefresh />
       </div>
     </BrowserRouter>
   )

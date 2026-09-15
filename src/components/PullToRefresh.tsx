@@ -67,6 +67,8 @@ export function PullToRefresh({
   return (
     <div
       ref={ref}
+      // Tells GlobalPullToRefresh this screen refreshes itself.
+      data-ptr=""
       onScroll={onScroll}
       onTouchStart={onStart}
       onTouchMove={onMove}

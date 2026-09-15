@@ -1,4 +1,4 @@
-import { collection, limit, query, Timestamp, where } from 'firebase/firestore'
+import { collection, limit, query, where } from 'firebase/firestore'
 import { useMemo } from 'react'
 import { useNav } from '../../app/stack'
 import logo from '../../assets/logo-mark.png'
@@ -141,26 +141,31 @@ function OpenSwitch({ store }: { store: StoreProfile }) {
   )
 }
 
+/** Today in Lagos (UTC+1 all year) — the day the backend stamps on each order copy. */
+const lagosDay = () => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10)
+
 /** Only two figures. Two numbers get checked every hour; a suite gets ignored. */
 function TodayStats({ storeId }: { storeId: string }) {
-  const q = useMemo(() => {
-    const start = new Date()
-    start.setHours(0, 0, 0, 0)
-    return query(
-      collection(db, 'orders'),
-      where('storeId', '==', storeId),
-      where('createdAt', '>=', Timestamp.fromDate(start)),
-    )
-  }, [storeId])
+  const day = lagosDay()
+  const q = useMemo(
+    () =>
+      // Two equality filters, so no composite index. The createdAt range this
+      // used before needed one the project never had, and "Earned today" sat
+      // on a skeleton.
+      query(collection(db, 'vendorOrders'), where('storeId', '==', storeId), where('createdDay', '==', day)),
+    [storeId, day],
+  )
   const { docs, error } = useLiveDocs(q)
 
-  // A missing composite index is the usual failure here, and a vendor must
-  // not see a red screen because of it.
+  // What this store earned is its own items. The buyer's total also carried
+  // the delivery and service fees, so this used to overstate every order
+  // (QA-BM-WEB-002, item 2). A cancelled order earns nothing.
   const paid = (docs ?? []).filter((d) => {
-    const status = String(d.data().paymentStatus ?? '')
-    return status === 'completed' || status === 'paid'
+    const data = d.data()
+    const status = String(data.paymentStatus ?? '')
+    return (status === 'completed' || status === 'paid') && data.orderStatus !== 'cancelled'
   })
-  const revenue = paid.reduce((total, d) => total + asDouble(d.data().totalAmount), 0)
+  const revenue = paid.reduce((total, d) => total + asDouble(d.data().subtotal), 0)
   const loading = docs === null && !error
 
   return (
@@ -211,7 +216,7 @@ function NewOrdersCard({ storeId, onOpen }: { storeId: string; onOpen: () => voi
   const q = useMemo(
     () =>
       query(
-        collection(db, 'orders'),
+        collection(db, 'vendorOrders'),
         where('storeId', '==', storeId),
         where('orderStatus', '==', 'placed'),
         where('paymentStatus', '==', 'completed'),
