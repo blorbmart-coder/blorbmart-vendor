@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { signOut } from '../../app/session'
 import { useNav } from '../../app/stack'
 import logo from '../../assets/logo-mark.png'
@@ -7,11 +7,12 @@ import { BlorbImage } from '../../components/BlorbImage'
 import { Icon, type IconName } from '../../components/Icon'
 import { FadeSlideIn } from '../../components/motion'
 import { confirmBlorb, toast } from '../../components/overlay'
-import { Card, Divider, Pill } from '../../components/ui'
+import { Card, Pill } from '../../components/ui'
 import { BUSINESS, hoursLabel, isOpenNow, type StoreProfile } from '../../data/models'
 import { useStore } from '../../data/storeRepo'
 import { compactCount } from '../../lib/format'
 import { showCampusSheet } from './CampusSheet'
+import { Group, Tile } from './SettingsList'
 import { pickStoreMedia } from './StoreMedia'
 
 const WHATSAPP = `https://wa.me/2349022594853?text=${encodeURIComponent('Hello Blorbmart, I am a vendor and I need help')}`
@@ -71,7 +72,7 @@ export default function ProfileScreen() {
               icon="outlined/edit"
               label="Edit store details"
               subtitle="Name, hours, address, photos"
-              onClick={() => void nav.push('/onboarding')}
+              onClick={() => void nav.push('/store/details')}
             />
             {/* High in the group: it decides whether anyone sees this shop at
                 all, and every store made before campuses needs to fix it. */}
@@ -99,7 +100,7 @@ export default function ProfileScreen() {
                 icon="round/schedule"
                 label="Opening hours"
                 subtitle={hoursLabel(store)}
-                onClick={() => void nav.push('/onboarding')}
+                onClick={() => void nav.push('/store/details/hours')}
               />
             )}
           </Group>
@@ -215,57 +216,5 @@ function MiniStat({ label, value, icon, color }: { label: string; value: string;
       <p className="t-h3 mt-2 max-w-full truncate">{value}</p>
       <p className="t-caption-sm mt-0.5">{label}</p>
     </Card>
-  )
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  const tiles = (Array.isArray(children) ? children : [children]).filter(Boolean) as ReactNode[]
-  return (
-    <section>
-      <h2 className="t-overline pb-2 pl-1">{title.toUpperCase()}</h2>
-      <Card padding={0} clip>
-        {tiles.map((tile, i) => (
-          <div key={i}>
-            {tile}
-            {i !== tiles.length - 1 && <Divider indent={60} />}
-          </div>
-        ))}
-      </Card>
-    </section>
-  )
-}
-
-function Tile({
-  icon,
-  label,
-  subtitle,
-  onClick,
-  danger = false,
-  locked = false,
-}: {
-  icon: IconName
-  label: string
-  subtitle?: string
-  onClick: () => void
-  danger?: boolean
-  /** Deliberately fixed: a padlock instead of a chevron, so nobody expects an editor. */
-  locked?: boolean
-}) {
-  const color = danger ? 'var(--color-danger)' : 'var(--color-ink-strong)'
-  return (
-    <button type="button" onClick={onClick} className="ink flex w-full items-center p-4 text-left">
-      <Icon name={icon} size={21} color={color} />
-      <span className="ml-4 min-w-0 flex-1">
-        <span className="t-h4 block" style={{ color }}>
-          {label}
-        </span>
-        {subtitle && <span className="t-caption-sm mt-0.5 block truncate">{subtitle}</span>}
-      </span>
-      {locked ? (
-        <Icon name="outlined/lock" size={18} color="var(--color-ink-faint)" />
-      ) : (
-        !danger && <Icon name="round/chevron_right" color="var(--color-ink-faint)" />
-      )}
-    </button>
   )
 }

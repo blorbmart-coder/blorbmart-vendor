@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useNav } from '../../app/stack'
 import { Page } from '../../components/AppBar'
 import { BlorbButton, BlorbIconButton, TextButton } from '../../components/Button'
@@ -12,6 +13,7 @@ import { pickImages, prepareImage, uploadImage, UploadError } from '../../lib/cl
 import { writeFailure } from '../../lib/db'
 import { dropPin, LocationError } from '../../lib/geo'
 import { haptic } from '../../lib/haptics'
+import { sectionByKey, type StoreSection } from './sections'
 import { StepBasics, StepBranding, StepBusinessType, StepFulfilment, StepHours, StepLocation } from './Steps'
 
 const TOTAL = 6
@@ -40,8 +42,11 @@ const SUBTITLES = [
    asked twice, and only what a storefront cannot work without is required.
    ───────────────────────────────────────────────────────────────────────── */
 export default function OnboardingScreen() {
+  const nav = useNav()
+  // Set on /store/details/:section: one step on its own, for a live store.
+  const section = sectionByKey(useParams().section)
   const [draft, setDraft] = useState<StoreProfile | null>(null)
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(section?.step ?? 0)
   const [alreadyLive, setAlreadyLive] = useState(false)
 
   useEffect(() => {
@@ -50,13 +55,21 @@ export default function OnboardingScreen() {
       // A vendor from an old-style signup may have no store document at all.
       const store = storeRepo.store ?? (await storeRepo.ensureStore(''))
       if (!live) return
+      // A live store edits its details a section at a time. Resuming this
+      // flow instead put it on its last step: "Step 6 of 6".
+      if (!section && store.onboardingComplete) {
+        nav.replace('/store/details')
+        return
+      }
       setDraft(store)
-      setStep(Math.min(Math.max(store.onboardingStep, 0), TOTAL - 1))
+      setStep(section ? section.step : Math.min(Math.max(store.onboardingStep, 0), TOTAL - 1))
       setAlreadyLive(store.onboardingComplete)
     })().catch(() => toast('Could not load your store. Check your connection.', { tone: 'danger' }))
     return () => {
       live = false
     }
+    // Once, on arrival: a page's section never changes under it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (!draft) {
@@ -73,6 +86,7 @@ export default function OnboardingScreen() {
       step={step}
       setStep={setStep}
       alreadyLive={alreadyLive}
+      section={section}
     />
   )
 }
@@ -83,14 +97,18 @@ function Flow({
   step,
   setStep,
   alreadyLive,
+  section,
 }: {
   draft: StoreProfile
   setDraft: (s: StoreProfile) => void
   step: number
   setStep: (s: number) => void
   alreadyLive: boolean
+  /** One section on its own: no steps, no progress, and saving goes back. */
+  section: StoreSection | null
 }) {
   const nav = useNav()
+  const single = section != null
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<'logo' | 'banner' | null>(null)
   const [duration, setDuration] = useState(0)
@@ -129,7 +147,7 @@ function Flow({
     if (leave) nav.reset('/')
   }
 
-  const back = () => (step === 0 ? void confirmLeave() : goTo(step - 1, 280))
+  const back = () => (single ? nav.pop() : step === 0 ? void confirmLeave() : goTo(step - 1, 280))
 
   /**
    * Puts the store live and lands on the dashboard, which says so in a toast.
@@ -167,13 +185,19 @@ function Flow({
     try {
       // A live store keeps its finished marker; only one still being set up
       // records which step to resume on.
-      await storeRepo.saveStep(alreadyLive ? latest.current.onboardingStep : step + 1, latest.current)
+      await storeRepo.saveStep(alreadyLive || single ? latest.current.onboardingStep : step + 1, latest.current)
     } catch (error) {
       toast(writeFailure(error, 'Could not save that. Check your connection.'), { tone: 'danger' })
       setSaving(false)
       return
     }
     setSaving(false)
+    if (single) {
+      haptic.selection()
+      toast('Saved.', { tone: 'success' })
+      nav.pop()
+      return
+    }
     if (step >= TOTAL - 1) {
       await finish()
       return
@@ -234,19 +258,23 @@ function Flow({
         <div className="flex items-center">
           <BlorbIconButton icon="round/arrow_back" background="transparent" tooltip="Back" onClick={back} />
           <span className="flex-1" />
-          <span className="t-label-sm text-ink-muted">
-            Step {step + 1} of {TOTAL}
-          </span>
+          {!single && (
+            <span className="t-label-sm text-ink-muted">
+              Step {step + 1} of {TOTAL}
+            </span>
+          )}
         </div>
-        <div className="mt-3 flex gap-[5px] px-2" aria-hidden="true">
-          {Array.from({ length: TOTAL }, (_, i) => (
-            <span
-              key={i}
-              className="h-[5px] flex-1 rounded-full transition-colors duration-[280ms] ease-emph"
-              style={{ background: i <= step ? 'var(--color-brand)' : 'var(--color-line)' }}
-            />
-          ))}
-        </div>
+        {!single && (
+          <div className="mt-3 flex gap-[5px] px-2" aria-hidden="true">
+            {Array.from({ length: TOTAL }, (_, i) => (
+              <span
+                key={i}
+                className="h-[5px] flex-1 rounded-full transition-colors duration-[280ms] ease-emph"
+                style={{ background: i <= step ? 'var(--color-brand)' : 'var(--color-line)' }}
+              />
+            ))}
+          </div>
+        )}
         <div className="mt-5 px-2">
           <SwapIn swapKey={TITLES[step]} className="block">
             <h1 className="t-display-sm">{TITLES[step]}</h1>
@@ -307,13 +335,13 @@ function Flow({
         style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
       >
         <BlorbButton
-          label={isLast ? (alreadyLive ? 'Save changes' : 'Put my store live') : 'Continue'}
+          label={single || (isLast && alreadyLive) ? 'Save changes' : isLast ? 'Put my store live' : 'Continue'}
           busy={saving}
           glow={canAdvance}
           onClick={saving ? null : () => void next()}
-          trailing={isLast ? undefined : <Icon name="round/arrow_forward" size={18} color="#fff" />}
+          trailing={isLast || single ? undefined : <Icon name="round/arrow_forward" size={18} color="#fff" />}
         />
-        {optional && !isLast ? (
+        {optional && !isLast && !single ? (
           <div className="mt-1 flex justify-center">
             <TextButton color="var(--color-ink-muted)" onClick={saving ? null : () => void next()}>
               Set this up later

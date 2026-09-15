@@ -12,7 +12,7 @@ import { asDate, asDouble, asInt, asString, isRecord, money, timeAgo } from '../
 import { haptic } from '../../lib/haptics'
 import { errorText } from '../../lib/http'
 import { useLiveDocs, type LiveDocs } from '../../lib/useLive'
-import { acceptOrder, markReadyForDelivery } from '../../services/orders'
+import { acceptOrder, markReady } from '../../services/orders'
 
 /** The stages an order passes through on the vendor's side. */
 type Stage = 'newOrder' | 'preparing' | 'ready' | 'onTheWay' | 'done'
@@ -27,7 +27,11 @@ const LABEL: Record<Stage, string> = {
   done: 'Done',
 }
 
-/** Order statuses that belong in each tab. */
+/**
+ * Order statuses that belong in each tab. The backend's VENDOR_FLOW
+ * (orderStatusService) must allow each tab's button from every status listed
+ * here, and its tests pin the Preparing list — change both together.
+ */
 const STATUSES: Record<Stage, string[]> = {
   newOrder: ['placed'],
   preparing: ['confirmed', 'processing', 'preparing'],
@@ -292,7 +296,7 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
     setBusy(true)
     try {
       if (stage === 'newOrder') await acceptOrder(orderId)
-      else if (stage === 'preparing') await markReadyForDelivery(orderId)
+      else if (stage === 'preparing') await markReady(orderId)
       haptic.medium()
       toast(
         stage === 'newOrder' ? 'Order accepted. Start cooking.' : 'Marked ready. A rider is being assigned.',

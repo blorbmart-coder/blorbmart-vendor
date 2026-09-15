@@ -11,6 +11,7 @@ const pages = {
   signup: lazyPage(() => import('../features/auth/Signup')),
   pending: lazyPage(() => import('../features/auth/Pending')),
   onboarding: lazyPage(() => import('../features/onboarding/Onboarding')),
+  storeDetails: lazyPage(() => import('../features/profile/StoreDetails')),
   shell: lazyPage(() => import('../features/shell/Shell')),
   product: lazyPage(() => import('../features/menu/ProductEditor')),
   event: lazyPage(() => import('../features/events/EventEditor')),
@@ -72,6 +73,9 @@ export const routes: RouteObject[] = [
   { path: '/signup', element: guarded('signup', true) },
   { path: '/pending', element: guarded('pending') },
   { path: '/onboarding', element: guarded('onboarding') },
+  { path: '/store/details', element: guarded('storeDetails') },
+  // One onboarding step on its own, for a live store editing that section.
+  { path: '/store/details/:section', element: guarded('onboarding') },
   ...TABS.map((path) => ({ path, element: guarded('shell') })),
   { path: '/catalogue/new', element: guarded('product') },
   { path: '/catalogue/:productId', element: guarded('product') },
@@ -98,7 +102,8 @@ export function parentOf(pathname: string): string | null {
   if (pathname === '/signup') return '/login'
   if (pathname.startsWith('/catalogue/')) return '/catalogue'
   if (pathname.startsWith('/events/') || pathname === '/scan') return '/catalogue'
-  if (pathname === '/wallet') return '/store'
+  if (pathname === '/wallet' || pathname === '/store/details') return '/store'
+  if (pathname.startsWith('/store/details/')) return '/store/details'
   if (pathname.startsWith('/wallet/')) return '/wallet'
   return null
 }
@@ -111,7 +116,9 @@ export function parentOf(pathname: string): string | null {
  */
 export function prefetch(signedIn: boolean) {
   const run = () => {
-    const keys: PageKey[] = signedIn ? ['product', 'onboarding', 'wallet', 'event', 'attendees'] : ['login', 'signup']
+    const keys: PageKey[] = signedIn
+      ? ['product', 'onboarding', 'storeDetails', 'wallet', 'event', 'attendees']
+      : ['login', 'signup']
     for (const key of keys) void pages[key].preload().catch(() => undefined)
     if (signedIn) {
       void pages.shell
@@ -132,6 +139,8 @@ export async function preload(pathname: string) {
     ['/signup', 'signup'],
     ['/pending', 'pending'],
     ['/onboarding', 'onboarding'],
+    ['/store/details', 'storeDetails'],
+    ['/store/details/:section', 'onboarding'],
     ['/', 'shell'],
     ['/orders', 'shell'],
     ['/catalogue', 'shell'],

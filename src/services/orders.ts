@@ -17,5 +17,9 @@ async function updateStatus(orderId: string, status: string) {
  */
 export const acceptOrder = (orderId: string) => updateStatus(orderId, 'confirmed')
 
-/** preparing → out_for_delivery: ready for a rider. */
-export const markReadyForDelivery = (orderId: string) => updateStatus(orderId, 'out_for_delivery')
+/**
+ * Anything in the Preparing tab → ready: waiting for a rider. The rider's
+ * pickup is what moves it on to out_for_delivery; asking for that here was
+ * refused for every accepted order ("Unsupported status transition").
+ */
+export const markReady = (orderId: string) => updateStatus(orderId, 'ready')
