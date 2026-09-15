@@ -1,48 +1,84 @@
-import { Card as CardIcon, Warning2 } from 'iconsax-react'
-import { useEffect, useState } from 'react'
+import { Card as CardIcon, Lock, Warning2 } from 'iconsax-react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLayer, useNav } from '../../app/stack'
 import { Page } from '../../components/AppBar'
 import { showSheet, toast } from '../../components/overlay'
 import { Spinner } from '../../components/Spinner'
 import { isSuccess, walletApi } from './api'
 import { formatNaira, walletFromJson, type WalletOverview } from './model'
-import { BRAND, GREY, MORANGE, NumPad, PinBoxes, rw, SuccessSheet, WalletAppBar, WalletButton } from './ui'
+import { BRAND, GREY, MORANGE, MRED, NumPad, PinBoxes, rw, SuccessSheet, WalletAppBar, WalletButton } from './ui'
 
 const label = (text: string) => <p style={rw(10, 700, GREY[500], { letterSpacing: 0.8 })}>{text.toUpperCase()}</p>
 
 /** Withdraw Funds — an amount, the destination, and the wallet PIN. */
 export default function WithdrawPage() {
+  const nav = useNav()
   const layer = useLayer<{ wallet?: WalletOverview }>()
   const [wallet, setWallet] = useState<WalletOverview | null>(layer.data?.wallet ?? null)
 
+  const reload = useCallback(
+    () =>
+      walletApi.getWallet().then((res) => {
+        if (isSuccess(res) && res.data) setWallet(walletFromJson(res.data))
+      }),
+    [],
+  )
+
   // Opened from a link rather than the wallet: read the balance itself.
   useEffect(() => {
-    if (wallet) return
-    void walletApi.getWallet().then((res) => {
-      if (isSuccess(res) && res.data) setWallet(walletFromJson(res.data))
-    })
-  }, [wallet])
+    if (!wallet) void reload()
+  }, [wallet, reload])
+
+  // Every withdrawal is approved with the wallet PIN, so a vendor without one
+  // sets it up here first — not after typing four digits into a pad the
+  // server can only refuse with "PIN not set" (QA-BM-WEB-003, issue 2).
+  const setUpPin = () => void nav.push('/wallet/pin').then(() => reload())
 
   return (
     <Page background="#fff">
       <WalletAppBar title="Withdraw Funds" />
-      {wallet ? (
-        <WithdrawForm wallet={wallet} />
-      ) : (
+      {!wallet ? (
         <div className="flex flex-1 items-center justify-center">
           <Spinner color={BRAND} />
         </div>
+      ) : !wallet.pinSet ? (
+        <NeedsPin onSetUp={setUpPin} />
+      ) : (
+        <WithdrawForm wallet={wallet} onNeedsPin={() => setWallet({ ...wallet, pinSet: false })} />
       )}
     </Page>
   )
 }
 
-function WithdrawForm({ wallet }: { wallet: WalletOverview }) {
+function NeedsPin({ onSetUp }: { onSetUp: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+      <div className="grid h-[72px] w-[72px] place-items-center rounded-full" style={{ background: 'rgb(81 86 241 / 0.08)' }}>
+        <Lock size={32} color={BRAND} />
+      </div>
+      <h2 className="mt-5" style={rw(20, 800, '#000')}>
+        Set up your wallet PIN
+      </h2>
+      <p className="mt-2" style={rw(13, 400, GREY[500], { lineHeight: 1.5 })}>
+        Every withdrawal is approved with a 4-digit PIN. Create yours first — it takes a few seconds, and you come
+        straight back here.
+      </p>
+      <div className="mt-6 w-full">
+        <WalletButton onClick={onSetUp}>
+          <span style={rw(16, 700)}>Set Up PIN</span>
+        </WalletButton>
+      </div>
+    </div>
+  )
+}
+
+function WithdrawForm({ wallet, onNeedsPin }: { wallet: WalletOverview; onNeedsPin: () => void }) {
   const nav = useNav()
   const [amount, setAmount] = useState('')
   const [pin, setPin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [amountError, setAmountError] = useState<string | null>(null)
+  const [lockedMessage, setLockedMessage] = useState<string | null>(null)
 
   const available = wallet.availableBalance > 0 ? wallet.availableBalance : 0
   const entered = Number.parseFloat(amount) || 0
@@ -53,6 +89,8 @@ function WithdrawForm({ wallet }: { wallet: WalletOverview }) {
     if (key === '⌫') setPin((p) => p.slice(0, -1))
     else setPin((p) => (p.length < 4 ? p + key : p))
   }
+
+  const resetPin = () => void nav.push('/wallet/pin?reset=1').then(() => setLockedMessage(null))
 
   const submit = async () => {
     if (entered < 1000) return setAmountError('Minimum withdrawal is ₦1,000')
@@ -83,7 +121,18 @@ function WithdrawForm({ wallet }: { wallet: WalletOverview }) {
       )
       return
     }
-    toast(res.statusCode === 401 ? 'Incorrect PIN. Please try again.' : (res.error ?? 'Withdrawal failed'), {
+
+    if (res.code === 'PIN_NOT_SET') {
+      setPin('')
+      onNeedsPin()
+      return
+    }
+    if (res.code === 'PIN_LOCKED' || res.statusCode === 423) {
+      setPin('')
+      setLockedMessage(res.error ?? 'Your PIN is locked after too many wrong attempts.')
+      return
+    }
+    toast(res.error ?? (res.statusCode === 401 ? 'Incorrect PIN. Please try again.' : 'Withdrawal failed'), {
       background: '#F44336',
       plain: true,
     })
@@ -162,6 +211,19 @@ function WithdrawForm({ wallet }: { wallet: WalletOverview }) {
         </div>
 
         <div className="mt-7">{label('Wallet PIN')}</div>
+        {lockedMessage && (
+          <div role="alert" className="mt-3 rounded-[12px] p-3.5" style={{ background: MRED[50], border: `1px solid ${MRED[200]}` }}>
+            <div className="flex items-start gap-2">
+              <Warning2 size={16} color={MRED.base} className="mt-px shrink-0" />
+              <p className="flex-1" style={rw(12, 400, MRED.base, { lineHeight: 1.5 })}>
+                {lockedMessage}
+              </p>
+            </div>
+            <button type="button" onClick={resetPin} className="ink mt-2 rounded-full px-3 py-1.5" style={rw(13, 700, BRAND)}>
+              Reset PIN by email
+            </button>
+          </div>
+        )}
         <div className="mt-3.5">
           <PinBoxes length={pin.length} width={52} height={56} gap={6} dot={10} radius={12} />
         </div>

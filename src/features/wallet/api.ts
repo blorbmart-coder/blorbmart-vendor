@@ -12,6 +12,11 @@ export interface ApiResult {
   error: string | null
   /** 0 when the request never completed. */
   statusCode: number
+  /**
+   * The server's reason, where it gives one — PIN_ALREADY_SET, PIN_NOT_SET,
+   * PIN_LOCKED, PIN_INVALID — so a screen can offer the fix, not just the text.
+   */
+  code?: string | null
 }
 
 export const isSuccess = (r: ApiResult) => r.statusCode >= 200 && r.statusCode < 300
@@ -25,8 +30,13 @@ async function call(path: string, method: 'GET' | 'POST' | 'DELETE' = 'GET', bod
   try {
     const res = await http(path, { method, body, auth: true, timeoutMs: TIMEOUT_MS })
     if (res.ok) return { data: dataOf(res), error: null, statusCode: res.status }
-    const message = res.body.message
-    return { data: null, error: typeof message === 'string' ? message : 'Request failed', statusCode: res.status }
+    const { message, code } = res.body
+    return {
+      data: null,
+      error: typeof message === 'string' ? message : 'Request failed',
+      statusCode: res.status,
+      code: typeof code === 'string' ? code : null,
+    }
   } catch (error) {
     if (error instanceof TimeoutError) return { data: null, error: TIMEOUT_MESSAGE, statusCode: 0 }
     if (error instanceof SignedOutError) return { data: null, error: error.message, statusCode: 0 }
@@ -56,6 +66,9 @@ export const walletApi = {
   changePin: (currentPin: string, newPin: string) =>
     call(`${BASE}/pin/change`, 'POST', { currentPin, newPin, confirmNewPin: newPin }),
   verifyPin: (pin: string) => call(`${BASE}/pin/verify`, 'POST', { pin }),
+  /** Emails a 6-digit code; answers `{ emailMasked }`. The way back from a forgotten or locked PIN. */
+  requestPinReset: () => call(`${BASE}/pin/reset-request`, 'POST', {}),
+  resetPin: (otp: string, newPin: string) => call(`${BASE}/pin/reset`, 'POST', { otp, newPin }),
   /** The backend takes kobo, as an integer — never a naira float. */
   withdraw: (amountNaira: number, pin: string) =>
     call(`${BASE}/withdraw`, 'POST', { amountKobo: Math.round(amountNaira * 100), pin }),

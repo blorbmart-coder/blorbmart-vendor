@@ -122,17 +122,19 @@ export function SuccessSheet({ title, message, onDone }: { title: string; messag
 }
 
 /** The four PIN boxes: a dot for each digit typed, the next one lit. */
-export function PinBoxes({ length, width, height, gap, dot, radius }: {
+export function PinBoxes({ length, width, height, gap, dot, radius, count = 4 }: {
   length: number
   width: number
   height: number
   gap: number
   dot: number
   radius: number
+  /** Boxes to draw: 4 for a PIN, 6 for an emailed reset code. */
+  count?: number
 }) {
   return (
-    <div className="flex justify-center" aria-label={`${length} of 4 digits entered`}>
-      {[0, 1, 2, 3].map((i) => {
+    <div className="flex justify-center" aria-label={`${length} of ${count} digits entered`}>
+      {Array.from({ length: count }, (_, i) => i).map((i) => {
         const filled = i < length
         const active = i === length
         return (
