@@ -1,0 +1,16 @@
+# vendor.blorbmart.com.ng — Blorbmart Vendor.
+# Sign-up and sign-in are public; the store, menu, orders, events and wallet
+# belong to a signed-in vendor.
+User-agent: *
+Allow: /signup
+Allow: /login
+Disallow: /pending
+Disallow: /onboarding
+Disallow: /orders
+Disallow: /catalogue
+Disallow: /store
+Disallow: /events/
+Disallow: /scan
+Disallow: /wallet
+
+Sitemap: https://vendor.blorbmart.com.ng/sitemap.xml

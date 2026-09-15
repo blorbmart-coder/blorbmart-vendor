@@ -4,6 +4,7 @@ import { GlobalPullToRefresh } from '../components/GlobalPullToRefresh'
 import { OverlayHost } from '../components/overlay'
 import { useUser } from '../lib/authState'
 import { initPush } from '../lib/push'
+import { applyRouteMeta } from '../lib/seo'
 import { syncOrderCopies } from '../services/orders'
 import { isPublicPath, parentOf, prefetch, routes, stackKeyOf } from './routes'
 import { StackNavigator, useNav } from './stack'
@@ -38,12 +39,20 @@ function SessionWatch() {
   return null
 }
 
+/** Keeps the title, canonical URL and robots rule in step with the route. */
+function RouteMeta() {
+  const { pathname } = useLocation()
+  useEffect(() => applyRouteMeta(pathname), [pathname])
+  return null
+}
+
 export function App() {
   return (
     <BrowserRouter>
       <div className="app-frame">
         <StackNavigator routes={routes} stackKeyOf={stackKeyOf} parentOf={parentOf}>
           <SessionWatch />
+          <RouteMeta />
           <OverlayHost />
         </StackNavigator>
         <GlobalPullToRefresh />

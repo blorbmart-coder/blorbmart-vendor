@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-NG">
   <head>
     <meta charset="UTF-8" />
     <!-- resizes-content: on Android the keyboard shrinks the layout instead of
@@ -12,8 +12,61 @@
     />
     <meta name="theme-color" content="#FFFFFF" />
     <meta name="color-scheme" content="light" />
-    <title>Blorbmart Vendor</title>
-    <meta name="description" content="Manage your Blorbmart store — orders, products, and earnings." />
+    <!-- Defaults for the sign-up page. src/lib/seo.ts rewrites the title,
+         canonical URL and robots rule for each route. -->
+    <title>Sell to students on your campus | Blorbmart Vendor</title>
+    <meta
+      name="description"
+      content="Open your Blorbmart store and sell food, medicine or event tickets to students at UNIOSUN, LAUTECH, UNN and OOU. Orders and payouts in one app."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Blorbmart Vendor" />
+    <meta property="og:locale" content="en_NG" />
+    <meta property="og:url" content="https://vendor.blorbmart.com.ng/signup" />
+    <meta property="og:title" content="Sell on Blorbmart — your store, on every student's phone" />
+    <meta
+      property="og:description"
+      content="Kitchens, pharmacies and event organisers: take orders, sell tickets and get paid out, all from one app."
+    />
+    <meta property="og:image" content="https://vendor.blorbmart.com.ng/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Blorbmart Vendor — sell to students on your campus" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@blorbmart" />
+    <meta name="twitter:title" content="Sell on Blorbmart — your store, on every student's phone" />
+    <meta
+      name="twitter:description"
+      content="Kitchens, pharmacies and event organisers: take orders, sell tickets and get paid out, all from one app."
+    />
+    <meta name="twitter:image" content="https://vendor.blorbmart.com.ng/og.png" />
+    <!-- A data block, not a script: the CSP's script-src 'self' does not apply. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://vendor.blorbmart.com.ng/#app",
+            "name": "Blorbmart Vendor",
+            "url": "https://vendor.blorbmart.com.ng/signup",
+            "description": "Run a campus kitchen, pharmacy or event on Blorbmart: menu, orders, tickets and payouts.",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Any",
+            "inLanguage": "en-NG",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "NGN" },
+            "publisher": { "@id": "https://www.blorbmart.com.ng/#organization" }
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://www.blorbmart.com.ng/#organization",
+            "name": "Blorbmart",
+            "legalName": "Blorbmart Limited",
+            "url": "https://www.blorbmart.com.ng/"
+          }
+        ]
+      }
+    </script>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
