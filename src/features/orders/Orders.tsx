@@ -279,10 +279,22 @@ function OrderList({ stage, state }: { stage: Stage; state: { docs: LiveDocs | n
 
 const WARN_INK = 'var(--color-warning-ink)'
 
-/** Add-ons arrive as names; older copies may still carry `{ name }` objects. */
+/**
+ * Add-ons arrive as names, already carrying their count where there is more
+ * than one. Older copies still hold `{ name, quantity }` objects, and the
+ * count matters just as much there: the kitchen makes what this line says.
+ */
 const addonNames = (value: unknown): string[] =>
   Array.isArray(value)
-    ? value.map((a) => (typeof a === 'string' ? a : isRecord(a) ? asString(a.name) : '')).filter(Boolean)
+    ? value
+        .map((a) => {
+          if (typeof a === "string") return a
+          if (!isRecord(a)) return ""
+          const name = asString(a.name)
+          const count = asInt(a.quantity, 1)
+          return name && count > 1 ? name + " x" + count : name
+        })
+        .filter(Boolean)
     : []
 
 /**

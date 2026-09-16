@@ -33,6 +33,7 @@ export default function WithdrawPage() {
   // sets it up here first — not after typing four digits into a pad the
   // server can only refuse with "PIN not set" (QA-BM-WEB-003, issue 2).
   const setUpPin = () => void nav.push('/wallet/pin').then(() => reload())
+  const addBank = () => void nav.push('/wallet/bank').then(() => reload())
 
   return (
     <Page background="#fff">
@@ -41,12 +42,43 @@ export default function WithdrawPage() {
         <div className="flex flex-1 items-center justify-center">
           <Spinner color={BRAND} />
         </div>
+      ) : !wallet.bankAccount ? (
+        <NeedsBank onAdd={addBank} />
       ) : !wallet.pinSet ? (
         <NeedsPin onSetUp={setUpPin} />
       ) : (
         <WithdrawForm wallet={wallet} onNeedsPin={() => setWallet({ ...wallet, pinSet: false })} />
       )}
     </Page>
+  )
+}
+
+/**
+ * The same courtesy the missing PIN gets.
+ *
+ * The form below reads "No bank linked" as its destination and lets a vendor
+ * type an amount and a PIN into it, only for the server to answer "Verified
+ * bank account required" — so the account is asked for up front instead.
+ */
+function NeedsBank({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+      <div className="grid h-[72px] w-[72px] place-items-center rounded-full" style={{ background: 'rgb(81 86 241 / 0.08)' }}>
+        <CardIcon size={32} color={BRAND} />
+      </div>
+      <h2 className="mt-5" style={rw(20, 800, '#000')}>
+        Add your bank account
+      </h2>
+      <p className="mt-2" style={rw(13, 400, GREY[500], { lineHeight: 1.5 })}>
+        We pay out to a Nigerian bank account in your name. Add and verify one — it takes about a minute — and you
+        come straight back here.
+      </p>
+      <div className="mt-6 w-full">
+        <WalletButton onClick={onAdd}>
+          <span style={rw(16, 700)}>Add Bank Account</span>
+        </WalletButton>
+      </div>
+    </div>
   )
 }
 

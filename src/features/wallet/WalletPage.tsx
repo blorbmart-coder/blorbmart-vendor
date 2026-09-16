@@ -37,7 +37,7 @@ import {
   type WalletSummary,
   type WalletTransaction,
 } from './model'
-import { BRAND, ErrorView, GREEN, GREY, ORANGE_TX, RED, rw, WalletAppBar, WalletHandle } from './ui'
+import { BRAND, ErrorView, GREEN, GREY, ORANGE_TX, RED, rw, WalletAppBar, WalletButton, WalletHandle } from './ui'
 
 type IconComponent = ComponentType<{ size?: number; color?: string }>
 
@@ -93,6 +93,60 @@ async function fallbackSummary(): Promise<WalletSummary | null> {
     avgOrderValue: month.length ? sum(month) / month.length : 0,
     busiestDay,
   }
+}
+
+/** What the backend refuses a withdrawal under. */
+const MIN_WITHDRAWAL = 1000
+
+interface WithdrawGate {
+  ready: boolean
+  title: string
+  message: string
+  action?: { label: string; to: string }
+}
+
+/**
+ * What stands between this vendor and their money, and where to send them.
+ *
+ * The Withdraw tile used to simply go grey whenever a bank account was
+ * missing or the wallet's withdrawal lock was off — beside a balance card
+ * still reading "Ready to withdraw". A vendor with ₦24,600 showing was given
+ * a dead icon and no reason for it, and no way to find out what to do about
+ * it (QA, 15 Sep 2026, item 6).
+ *
+ * So nothing here disables the tile. Every case that would have greyed it out
+ * is a sentence and, where there is one, the screen that fixes it. The one
+ * case left to the withdraw screen itself is a missing PIN, which it already
+ * offers to set up.
+ */
+function withdrawGate(wallet: WalletOverview): WithdrawGate {
+  if (!wallet.isWithdrawalEnabled) {
+    return {
+      ready: false,
+      title: 'Withdrawals are paused',
+      message:
+        'Payouts from this wallet are on hold. Your balance is safe and keeps growing — contact support to have the hold lifted.',
+    }
+  }
+  if (!wallet.bankAccount) {
+    return {
+      ready: false,
+      title: 'Add a bank account first',
+      message:
+        'We pay out to a Nigerian bank account in your name. Add and verify one — it takes about a minute — and your balance is ready to withdraw.',
+      action: { label: 'Add bank account', to: '/wallet/bank' },
+    }
+  }
+  if (wallet.availableBalance < MIN_WITHDRAWAL) {
+    return {
+      ready: false,
+      title: `Minimum withdrawal is ${formatNaira(MIN_WITHDRAWAL)}`,
+      message: `You have ${formatNaira(wallet.availableBalance)} available. Once it reaches ${formatNaira(
+        MIN_WITHDRAWAL,
+      )} you can send it to your bank.`,
+    }
+  }
+  return { ready: true, title: '', message: '' }
 }
 
 /** Earnings and payouts — the Flutter SellerWalletPage. */
@@ -280,7 +334,23 @@ export default function WalletPage() {
                 icon={MoneySend}
                 label="Withdraw"
                 color={BRAND}
-                onClick={wallet.isWithdrawalEnabled && wallet.bankAccount ? () => reloadAfter('/wallet/withdraw', { wallet }) : undefined}
+                onClick={() => {
+                  const gate = withdrawGate(wallet)
+                  if (gate.ready) return reloadAfter('/wallet/withdraw', { wallet })
+                  void showSheet(
+                    (close) => (
+                      <WithdrawBlockedSheet
+                        gate={gate}
+                        onClose={close}
+                        onAction={(to) => {
+                          close()
+                          reloadAfter(to)
+                        }}
+                      />
+                    ),
+                    { handle: false },
+                  )
+                }}
               />
               <QuickAction icon={ReceiptItem} label="History" color={GREEN} onClick={() => void nav.push('/wallet/transactions')} />
               <QuickAction icon={CardIcon} label="Bank" color={ORANGE_TX} onClick={() => reloadAfter('/wallet/bank')} />
@@ -299,14 +369,20 @@ export default function WalletPage() {
                 <div className="mt-3 px-5">
                   <BarChart data={summary.dailyEarnings} />
                 </div>
+                {/* Each tile names its own period. Only the earnings tile
+                    follows the chip; average order and order count are always
+                    a 30-day figure, and labelling them all "Total Earnings",
+                    "Avg. Order" and "Orders" under a "This Week" chip read as
+                    ₦0 earned beside a ₦12,300 average on the same screen
+                    (QA, 15 Sep 2026, item 6, secondary). */}
                 <div className="mt-4 grid grid-cols-2 gap-2.5 px-5">
                   <StatTile
-                    label="Total Earnings"
+                    label={filter === 'week' ? 'Earned this week' : 'Earned this month'}
                     value={formatNaira(filter === 'week' ? summary.earningsThisWeek : summary.earningsThisMonth)}
                   />
-                  <StatTile label="Avg. Order" value={formatNaira(summary.avgOrderValue)} />
-                  <StatTile label="Orders" value={`${summary.ordersThisMonth} fulfilled`} />
-                  {summary.busiestDay && <StatTile label="Busiest Day" value={summary.busiestDay} />}
+                  <StatTile label="Avg. order · 30 days" value={formatNaira(summary.avgOrderValue)} />
+                  <StatTile label="Orders · 30 days" value={`${summary.ordersThisMonth} fulfilled`} />
+                  {summary.busiestDay && <StatTile label="Busiest day · 7 days" value={summary.busiestDay} />}
                 </div>
                 <div className="h-6" />
               </>
@@ -368,8 +444,17 @@ function BalanceCard({ wallet }: { wallet: WalletOverview }) {
         <p className="mt-2" style={rw(34, 800, '#fff')}>
           {formatNaira(wallet.availableBalance)}
         </p>
+        {/* The subtitle is the balance card's one claim, so it must not say
+            "Ready to withdraw" over a Withdraw button that will turn the
+            vendor away. */}
         <p style={rw(12, 400, 'rgb(255 255 255 / 0.65)')}>
-          {wallet.isWithdrawalEnabled ? 'Ready to withdraw' : 'Withdrawals paused'}
+          {!wallet.isWithdrawalEnabled
+            ? 'Withdrawals paused'
+            : !wallet.bankAccount
+              ? 'Add a bank account to withdraw'
+              : wallet.availableBalance < MIN_WITHDRAWAL
+                ? `Withdraw from ${formatNaira(MIN_WITHDRAWAL)}`
+                : 'Ready to withdraw'}
         </p>
         <div className="mt-5 flex gap-3">
           <Meta label="PENDING" value={formatNaira(wallet.pendingBalance)} />
@@ -559,6 +644,47 @@ function Recent({
         )
       })}
     </>
+  )
+}
+
+/**
+ * Why the withdrawal cannot start yet, and the one tap that changes it.
+ *
+ * Shown instead of a greyed-out icon, because a vendor staring at money they
+ * cannot reach needs a reason and a next step, not a lower opacity.
+ */
+function WithdrawBlockedSheet({
+  gate,
+  onClose,
+  onAction,
+}: {
+  gate: WithdrawGate
+  onClose: () => void
+  onAction: (to: string) => void
+}) {
+  return (
+    <div className="pb-safe px-5 pb-8">
+      <WalletHandle />
+      <div className="mt-2 grid h-[60px] w-[60px] place-items-center rounded-[18px]" style={{ background: 'rgb(81 86 241 / 0.08)' }}>
+        <MoneySend size={28} color={BRAND} />
+      </div>
+      <h2 className="mt-4" style={rw(20, 800, '#000')}>
+        {gate.title}
+      </h2>
+      <p className="mt-2" style={rw(13, 400, GREY[600], { lineHeight: 1.6 })}>
+        {gate.message}
+      </p>
+      <div className="mt-6 space-y-2.5">
+        {gate.action && (
+          <WalletButton onClick={() => onAction(gate.action!.to)}>
+            <span style={rw(16, 700)}>{gate.action.label}</span>
+          </WalletButton>
+        )}
+        <WalletButton outline={GREY[300]} onClick={onClose}>
+          <span style={rw(16, 700, GREY[600])}>Close</span>
+        </WalletButton>
+      </div>
+    </div>
   )
 }
 
