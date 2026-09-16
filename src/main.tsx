@@ -34,11 +34,11 @@ async function boot() {
   const target = keep ? `${here}${window.location.search}` : destination
   if (!keep) window.history.replaceState(null, '', destination)
 
-  // The splash holds for the length of its own entrance — never cut off
-  // mid-spring — but no longer: the work above has been running under it.
+  // The splash holds until the mark has finished writing itself — never cut
+  // off mid-stroke — but no longer: the work above has been running under it.
   await Promise.all([
     preload(target.split('?')[0]),
-    new Promise((r) => setTimeout(r, Math.max(0, 800 - performance.now()))),
+    new Promise((r) => setTimeout(r, Math.max(0, 1300 - performance.now()))),
   ])
 
   createRoot(document.getElementById('root')!).render(
