@@ -1,4 +1,4 @@
-import { Book, Flash, Lock, Mobile, Monitor, TickCircle, Wifi, type Icon as IconType } from 'iconsax-react'
+import { Book, Flash, InfoCircle, Lock, Mobile, Monitor, TickCircle, Wifi, type Icon as IconType } from 'iconsax-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNav } from '../../app/stack'
 import { Page } from '../../components/AppBar'
@@ -41,6 +41,27 @@ interface Plan {
   name: string
   amount: number
   periodLabel: string
+  /** The data allowance, "1.5GB", when the provider says. */
+  size: string
+  /** "30 days", "2 hours". */
+  validity: string
+  /** Anything else the provider says about the plan. */
+  details: string
+}
+
+/**
+ * The two lines on a plan tile. The allowance leads when the provider gives
+ * one; otherwise the name's first chunk. Some networks name plans by price
+ * ("Daily Plan N75 — 1 day"), so the details sheet carries the full name.
+ */
+const SIZE = /(\d+(?:\.\d+)?)\s*(TB|GB|MB)\b/i
+function planLines(p: Plan) {
+  const match = `${p.name} ${p.details}`.match(SIZE)
+  const size = p.size || (match ? `${match[1]}${match[2].toUpperCase()}` : '')
+  const [first, ...rest] = p.name.split(/\s*[—–-]\s*/)
+  return size
+    ? { headline: size, detail: p.validity || p.periodLabel || rest.join(' · ') }
+    : { headline: first, detail: rest.join(' · ') }
 }
 
 interface Payment {
@@ -231,6 +252,9 @@ export default function BillsPage() {
               name: str(m.name),
               amount: num(m.amount),
               periodLabel: str(m.periodLabel),
+              size: str(m.size),
+              validity: str(m.validity),
+              details: str(m.details),
             }))
           : [],
       )
@@ -285,6 +309,22 @@ export default function BillsPage() {
   })()
 
   const target = needs(service, 'phone') ? cleanPhone(phone) : account.trim()
+
+  const showPlanDetails = (p: Plan) =>
+    void showSheet<boolean>(
+      (close) => (
+        <PlanDetailsSheet
+          plan={p}
+          networkName={service?.name ?? ''}
+          fee={fee}
+          isSelected={plan?.code === p.code}
+          onChoose={() => close(true)}
+        />
+      ),
+      { handle: false },
+    ).then((chosen) => {
+      if (chosen) setPlan(p)
+    })
 
   const pay = () => {
     if (!service || problem) return
@@ -477,33 +517,55 @@ export default function BillsPage() {
                   <div className="mt-3 grid grid-cols-2 gap-2.5">
                     {shownPlans.map((p) => {
                       const active = plan?.code === p.code
-                      const [headline, ...rest] = p.name.split(/\s*[—–-]\s*/)
+                      const { headline, detail } = planLines(p)
                       return (
-                        <button
-                          key={p.code}
-                          type="button"
-                          onClick={() => setPlan(p)}
-                          className="ink rounded-[12px] p-3 text-left"
-                          style={{
-                            background: active ? 'rgb(81 86 241 / 0.08)' : '#fff',
-                            border: `${active ? 1.5 : 1}px solid ${active ? BRAND : GREY[200]}`,
-                          }}
-                        >
-                          <span className="block truncate" style={rw(14, 800, '#000')}>
-                            {headline}
-                          </span>
-                          {rest.length > 0 && (
-                            <span className="block truncate" style={rw(11, 400, GREY[500])}>
-                              {rest.join(' · ')}
+                        // The info button sits beside the tile, not inside
+                        // it: a button inside a button is not valid.
+                        <div key={p.code} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setPlan(p)}
+                            className="ink h-full w-full rounded-[12px] p-3 pr-9 text-left"
+                            style={{
+                              background: active ? 'rgb(81 86 241 / 0.08)' : '#fff',
+                              border: `${active ? 1.5 : 1}px solid ${active ? BRAND : GREY[200]}`,
+                            }}
+                          >
+                            <span className="line-clamp-2 block" style={rw(14, 800, '#000')}>
+                              {headline}
                             </span>
-                          )}
-                          <span className="mt-1 block" style={rw(14, 800, active ? BRAND : '#000')}>
-                            {formatNaira(p.amount)}
-                          </span>
-                        </button>
+                            {detail && (
+                              <span className="line-clamp-2 mt-0.5 block" style={rw(11, 400, GREY[500])}>
+                                {detail}
+                              </span>
+                            )}
+                            <span className="mt-1 block" style={rw(14, 800, active ? BRAND : '#000')}>
+                              {formatNaira(p.amount)}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Details for ${p.name}`}
+                            onClick={() => showPlanDetails(p)}
+                            className="ink absolute right-1 top-1 grid h-8 w-8 place-items-center rounded-full"
+                          >
+                            <InfoCircle size={17} color={GREY[500]} />
+                          </button>
+                        </div>
                       )
                     })}
                   </div>
+                )}
+                {/* The chosen plan in full, so nobody pays for a name they
+                    could only read the start of. */}
+                {plan && (
+                  <p
+                    className="mt-3 rounded-[12px] px-3.5 py-2.5"
+                    style={{ background: 'rgb(81 86 241 / 0.06)', ...rw(12, 500, '#000', { lineHeight: 1.5 }) }}
+                  >
+                    <span style={rw(12, 800, BRAND)}>Selected: </span>
+                    {plan.name}
+                  </p>
                 )}
               </>
             )}
@@ -571,6 +633,61 @@ export default function BillsPage() {
         </div>
       )}
     </Page>
+  )
+}
+
+/** Everything known about one plan, with its full, untruncated name. */
+function PlanDetailsSheet({
+  plan,
+  networkName,
+  fee,
+  isSelected,
+  onChoose,
+}: {
+  plan: Plan
+  networkName: string
+  fee: number
+  isSelected: boolean
+  onChoose: () => void
+}) {
+  const rows: Array<[string, string]> = [
+    ['Network', networkName],
+    ['Data', plan.size],
+    ['Includes', plan.details && plan.details !== plan.size ? plan.details : ''],
+    ['Valid for', plan.validity || plan.periodLabel],
+    ['Price', formatNaira(plan.amount)],
+    ['Fee', fee > 0 ? formatNaira(fee) : ''],
+  ]
+  return (
+    <div className="pb-safe px-5 pb-8">
+      <WalletHandle />
+      <h2 style={rw(20, 800, '#000')}>Plan details</h2>
+      <div
+        className="mt-4 rounded-[14px] p-4"
+        style={{ background: 'rgb(81 86 241 / 0.06)', border: '1px solid rgb(81 86 241 / 0.2)' }}
+      >
+        <p style={rw(26, 800, BRAND)}>{planLines(plan).headline}</p>
+        <p className="mt-1" style={rw(13, 500, GREY[600], { lineHeight: 1.5 })}>
+          {plan.name}
+        </p>
+      </div>
+      <div className="mt-4">
+        {rows
+          .filter(([, value]) => value)
+          .map(([left, right]) => (
+            <SummaryRow key={left} left={left} right={right} />
+          ))}
+        <div className="mt-2 flex justify-between pt-2" style={{ borderTop: `1px solid ${GREY[200]}` }}>
+          <span style={rw(14, 700, '#000')}>You pay</span>
+          <span style={rw(16, 800, '#000')}>{formatNaira(plan.amount + fee)}</span>
+        </div>
+      </div>
+      <div className="mt-6">
+        <WalletButton onClick={onChoose}>
+          <span style={rw(16, 700)}>{isSelected ? 'Selected' : 'Choose this plan'}</span>
+        </WalletButton>
+      </div>
+    </div>
   )
 }
 
