@@ -75,3 +75,26 @@ export const walletApi = {
   getWithdrawals: (o: { status?: string | null; cursor?: string | null; limit?: number } = {}) =>
     call(`${BASE}/withdrawals?${qs({ limit: o.limit ?? 20, status: o.status, cursor: o.cursor })}`),
 }
+
+/**
+ * Bills — airtime, data, electricity and TV — paid from the vendor's
+ * earnings. The same endpoints the customer app uses, with `payer: 'vendor'`,
+ * so the backend debits (and on failure refunds) this wallet, behind its PIN.
+ */
+export const billsApi = {
+  catalog: () => call('/api/bills/catalog'),
+  plans: (serviceKey: string) => call(`/api/bills/services/${encodeURIComponent(serviceKey)}/variations`),
+  verifyCustomer: (serviceKey: string, accountNumber: string, meterType?: string) =>
+    call('/api/bills/verify-customer', 'POST', { serviceKey, accountNumber, meterType }),
+  purchase: (body: {
+    serviceKey: string
+    amount?: number
+    phone?: string
+    accountNumber?: string
+    variationCode?: string
+    meterType?: string
+    pin: string
+    idempotencyKey: string
+  }) => call('/api/bills/purchase', 'POST', { ...body, payer: 'vendor', paymentMethod: 'wallet' }),
+  history: () => call(`/api/bills/history?${qs({ payer: 'vendor', limit: 10 })}`),
+}

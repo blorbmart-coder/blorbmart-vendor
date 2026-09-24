@@ -8,6 +8,7 @@ import {
   Clock,
   Edit,
   Lock,
+  Mobile,
   MoneySend,
   ReceiptItem,
   Refresh,
@@ -46,6 +47,8 @@ export const TX_STYLE: Record<TransactionType, [IconComponent, string, string]> 
   debit: [ArrowUp, '#FDECEB', RED],
   reversal: [RefreshCircle, '#FEF5E7', ORANGE_TX],
   adjustment: [Edit, 'rgb(81 86 241 / 0.08)', BRAND],
+  bill_payment: [Mobile, 'rgb(81 86 241 / 0.08)', BRAND],
+  bill_refund: [RefreshCircle, '#FEF5E7', ORANGE_TX],
 }
 
 const MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -352,6 +355,7 @@ export default function WalletPage() {
                   )
                 }}
               />
+              <QuickAction icon={Mobile} label="Pay Bills" color="#FF5A1F" onClick={() => reloadAfter('/wallet/bills')} />
               <QuickAction icon={ReceiptItem} label="History" color={GREEN} onClick={() => void nav.push('/wallet/transactions')} />
               <QuickAction icon={CardIcon} label="Bank" color={ORANGE_TX} onClick={() => reloadAfter('/wallet/bank')} />
               <QuickAction icon={Chart2} label="Payouts" color="#9B59B6" onClick={() => void nav.push('/wallet/payouts')} />

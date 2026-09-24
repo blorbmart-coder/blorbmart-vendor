@@ -23,6 +23,7 @@ const pages = {
   withdraw: lazyPage(() => import('../features/wallet/Withdraw')),
   bank: lazyPage(() => import('../features/wallet/BankAccount')),
   pin: lazyPage(() => import('../features/wallet/Pin')),
+  bills: lazyPage(() => import('../features/wallet/Bills')),
 }
 
 type PageKey = keyof typeof pages
@@ -89,6 +90,7 @@ export const routes: RouteObject[] = [
   { path: '/wallet/withdraw', element: guarded('withdraw') },
   { path: '/wallet/bank', element: guarded('bank') },
   { path: '/wallet/pin', element: guarded('pin') },
+  { path: '/wallet/bills', element: guarded('bills') },
   { path: '*', element: <NotFound /> },
 ]
 

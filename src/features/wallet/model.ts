@@ -150,8 +150,8 @@ export function summaryFromJson(json: Record<string, unknown>): WalletSummary {
   }
 }
 
-export type TransactionType = 'credit' | 'debit' | 'reversal' | 'adjustment'
-const TX_TYPES: TransactionType[] = ['credit', 'debit', 'reversal', 'adjustment']
+export type TransactionType = 'credit' | 'debit' | 'reversal' | 'adjustment' | 'bill_payment' | 'bill_refund'
+const TX_TYPES: TransactionType[] = ['credit', 'debit', 'reversal', 'adjustment', 'bill_payment', 'bill_refund']
 
 export interface WalletTransaction {
   id: string

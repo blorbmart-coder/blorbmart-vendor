@@ -15,6 +15,7 @@ const FILTERS: Array<[string | null, string]> = [
   ['debit', 'Debits'],
   ['reversal', 'Reversals'],
   ['adjustment', 'Adjustments'],
+  ['bill_payment', 'Bills'],
 ]
 
 const TYPE_LABEL: Record<TransactionType, string> = {
@@ -22,6 +23,8 @@ const TYPE_LABEL: Record<TransactionType, string> = {
   debit: 'Debit',
   reversal: 'Reversal',
   adjustment: 'Adjustment',
+  bill_payment: 'Bill',
+  bill_refund: 'Bill refund',
 }
 
 export function TypePill({ type }: { type: TransactionType }) {
