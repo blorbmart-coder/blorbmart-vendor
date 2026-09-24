@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   limit,
   onSnapshot,
   query,
@@ -61,8 +62,15 @@ class StoreRepo {
     return this.snap.known
   }
 
+  /**
+   * Whether this vendor still has to set their store up. A store already
+   * live for buyers never does, even with no `onboardingComplete` flag:
+   * sending a trading vendor back through "Put my store live" on every
+   * launch is the bug this guards.
+   */
   get needsOnboarding() {
-    return this.snap.store == null || !this.snap.store.onboardingComplete
+    const store = this.snap.store
+    return store == null || !(store.onboardingComplete || store.isActive)
   }
 
   private set(next: Partial<StoreSnapshot>) {
@@ -103,9 +111,11 @@ class StoreRepo {
           if (first || !snap.metadata.fromCache) {
             this.set({ store, known: true, loading: false })
             done()
-          } else {
-            this.set({ store })
           }
+          // Otherwise: an empty answer from the local cache, which only means
+          // this browser has never seen the store. It must not wipe one
+          // already held — that left patch() with no id, and every
+          // onboarding step then "saved" without writing anything.
         },
         (error) => {
           console.warn('StoreRepo: stream failed', error.code)
@@ -170,10 +180,25 @@ class StoreRepo {
    * never waits on a round trip to show what was just typed.
    */
   async patch(fields: DocumentData, optimistic?: StoreProfile) {
-    const id = this.snap.store?.id
-    if (!id) return
+    // Never returns without writing. It used to return silently when no
+    // store was held, and callers took that for success: onboarding advanced
+    // and "Put my store live" opened the dashboard while nothing reached the
+    // database, so the next visit sent the vendor straight back.
+    const id = this.snap.store?.id ?? (await this.resolveStoreId())
+    if (!id) throw new Error('Your store could not be found. Reload and try again.')
     if (optimistic) this.set({ store: optimistic })
     await setDoc(doc(db, 'stores', id), { ...fields, updatedAt: serverTimestamp() }, { merge: true })
+  }
+
+  /** Finds this vendor's store on the server when none is held in memory. */
+  private async resolveStoreId(): Promise<string | null> {
+    const uid = auth.currentUser?.uid
+    if (!uid) return null
+    const snap = await getDocsFromServer(query(collection(db, 'stores'), where('vendorId', '==', uid), limit(1)))
+    if (snap.empty) return null
+    const store = storeFromDoc(snap.docs[0].id, snap.docs[0].data())
+    this.set({ store, known: true })
+    return store.id
   }
 
   /**
