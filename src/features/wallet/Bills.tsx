@@ -805,13 +805,13 @@ function ResultSheet({ payment, onDone }: { payment: Payment; onDone: () => void
           style={{ background: 'rgb(0 184 148 / 0.08)', border: '1px solid rgb(0 184 148 / 0.3)' }}
           onClick={() =>
             void navigator.clipboard?.writeText(payment.token).then(
-              () => toast('Token copied'),
+              () => toast(payment.category === 'education' ? 'PIN copied' : 'Token copied'),
               () => toast('Copy it by hand — the clipboard is blocked.'),
             )
           }
         >
           <span className="block" style={rw(10, 700, GREEN, { letterSpacing: 0.8 })}>
-            TOKEN · TAP TO COPY
+            {payment.category === 'education' ? 'PIN' : 'TOKEN'} · TAP TO COPY
           </span>
           <span className="mt-1 block break-all" style={rw(20, 800, '#000', { letterSpacing: 1 })}>
             {payment.token}
