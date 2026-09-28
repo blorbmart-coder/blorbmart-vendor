@@ -7,6 +7,7 @@ import { toast } from '../../components/overlay'
 import { useStore } from '../../data/storeRepo'
 import { haptic } from '../../lib/haptics'
 import DashboardScreen from '../dashboard/Dashboard'
+import { useNewOrderAlert } from '../orders/useNewOrderAlert'
 
 const OrdersScreen = lazyPage(() => import('../orders/Orders'))
 const MenuScreen = lazyPage(() => import('../menu/Menu'))
@@ -54,6 +55,10 @@ export default function Shell() {
   const store = useStore()
   const isOrganizer = store?.type === 'events'
   const tab = tabOf(layer.location.pathname)
+
+  // New orders ring from every tab, not only while Orders is open. An
+  // organizer takes no orders, so there is nothing to listen for.
+  useNewOrderAlert(isOrganizer ? null : store?.id)
 
   // An organizer has no Orders tab: nobody orders from them. Tickets are
   // issued instantly and live on the event.
