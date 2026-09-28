@@ -1,4 +1,4 @@
-import { http, messageOf } from '../lib/http'
+import { dataOf, http, messageOf } from '../lib/http'
 
 const BASE = '/api/orders'
 
@@ -23,6 +23,33 @@ export const acceptOrder = (orderId: string) => updateStatus(orderId, 'confirmed
  * refused for every accepted order ("Unsupported status transition").
  */
 export const markReady = (orderId: string) => updateStatus(orderId, 'ready')
+
+/** Why a kitchen turned an order down. The backend words each for the customer. */
+export type RejectReason = 'out_of_stock' | 'too_busy' | 'closing' | 'other'
+
+export const REJECT_REASONS: Array<{ id: RejectReason; label: string }> = [
+  { id: 'out_of_stock', label: 'Some items are out of stock' },
+  { id: 'too_busy', label: 'Too busy right now' },
+  { id: 'closing', label: 'We are closing' },
+  { id: 'other', label: 'Something else' },
+]
+
+/**
+ * placed → cancelled, with the customer refunded in full to their Blorbmart
+ * wallet and the job taken off the rider board — all on the server, in one
+ * call. Only a new order can be rejected; once accepted, it is support's.
+ * Resolves with whether the refund went through (a failed one is flagged for
+ * support rather than failing the rejection).
+ */
+export async function rejectOrder(orderId: string, reason: RejectReason): Promise<{ refunded: boolean }> {
+  const res = await http(`${BASE}/${encodeURIComponent(orderId)}/reject`, {
+    method: 'POST',
+    body: { reason },
+    auth: true,
+  })
+  if (res.status !== 200) throw new Error(messageOf(res, 'Could not reject this order.'))
+  return { refunded: dataOf(res).refunded === true }
+}
 
 let syncing: Promise<void> | null = null
 

@@ -17,31 +17,6 @@ const VAPID_KEY = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined
 
 let token: string | null = null
 let stopForeground: (() => void) | null = null
-let audio: AudioContext | null = null
-
-/** A short two-note chime, synthesised: no audio file to download. */
-function chime() {
-  try {
-    audio ??= new AudioContext()
-    void audio.resume()
-    const now = audio.currentTime
-    for (const [i, freq] of [880, 1320].entries()) {
-      const osc = audio.createOscillator()
-      const gain = audio.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      const start = now + i * 0.16
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.42)
-      osc.connect(gain).connect(audio.destination)
-      osc.start(start)
-      osc.stop(start + 0.45)
-    }
-  } catch {
-    // No audio on this device. The toast still shows.
-  }
-}
 
 /** Browsers only let a page ask for permission inside a user gesture. */
 function nextGesture(): Promise<void> {
@@ -94,7 +69,9 @@ export async function initPush(onOpenOrders: () => void) {
       const data = payload.data ?? {}
       const title = payload.notification?.title ?? data.title ?? ''
       const body = payload.notification?.body ?? data.body ?? ''
-      if (data.status === 'placed') chime()
+      // No sound here: the shell's useNewOrderAlert rings the new-order sound
+      // for every new paid order, push or no push, and a second sound on top
+      // of it only muddied it.
       if (title || body) {
         toast([title, body].filter(Boolean).join(' — '), { tone: 'brand', icon: 'round/notifications_active' })
       }

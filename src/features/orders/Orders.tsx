@@ -4,7 +4,7 @@ import { AppBar, Page } from '../../components/AppBar'
 import { BlorbButton } from '../../components/Button'
 import { Icon } from '../../components/Icon'
 import { FadeSlideIn, LivePulse, staggerFor } from '../../components/motion'
-import { toast } from '../../components/overlay'
+import { showSheet, toast, type SetDismissible } from '../../components/overlay'
 import { Divider, Empty, Pill, Skeleton } from '../../components/ui'
 import { useStore } from '../../data/storeRepo'
 import { db } from '../../lib/db'
@@ -12,7 +12,7 @@ import { asDate, asDouble, asInt, asString, isRecord, money, timeAgo } from '../
 import { haptic } from '../../lib/haptics'
 import { errorText } from '../../lib/http'
 import { useLiveDocs, type LiveDocs } from '../../lib/useLive'
-import { acceptOrder, markReady } from '../../services/orders'
+import { acceptOrder, markReady, rejectOrder, REJECT_REASONS, type RejectReason } from '../../services/orders'
 
 /** The stages an order passes through on the vendor's side. */
 type Stage = 'newOrder' | 'preparing' | 'ready' | 'onTheWay' | 'done'
@@ -336,6 +336,20 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
     }
   }
 
+  const reject = async () => {
+    const result = await showSheet<{ refunded: boolean }>((close, setDismissible) => (
+      <RejectSheet orderId={orderId} shortId={shortId} onDone={close} setDismissible={setDismissible} />
+    ))
+    if (!result) return
+    haptic.medium()
+    toast(
+      result.refunded
+        ? 'Order rejected. The customer has been refunded.'
+        : 'Order rejected. Support will finish the customer’s refund.',
+      { tone: 'neutral' },
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-[18px] bg-surface shadow-sm">
       <div
@@ -392,13 +406,38 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
         )}
       </div>
 
-      {actionLabel && (
+      {actionLabel && stage === 'newOrder' && (
+        // Two answers to a new order, side by side: no is as easy to give as
+        // yes, and a customer is refunded the moment a kitchen says it.
+        <div className="flex gap-3 px-4 pb-4">
+          <div className="w-[38%]">
+            <BlorbButton
+              label="Reject"
+              icon="round/close"
+              size="md"
+              kind="outline"
+              onClick={busy ? null : () => void reject()}
+            />
+          </div>
+          <BlorbButton
+            label={actionLabel}
+            icon="round/check"
+            busy={busy}
+            size="md"
+            kind="appetite"
+            glow
+            onClick={busy ? null : () => void advance()}
+          />
+        </div>
+      )}
+
+      {actionLabel && stage !== 'newOrder' && (
         <div className="px-4 pb-4">
           <BlorbButton
             label={actionLabel}
             busy={busy}
             size="md"
-            kind={stage === 'newOrder' ? 'appetite' : 'brand'}
+            kind="brand"
             onClick={busy ? null : () => void advance()}
           />
         </div>
@@ -412,6 +451,99 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
           </p>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Why the order is being turned down. The customer reads the reason, so it is
+ * chosen from a short list rather than typed, and the refund is spelled out
+ * before the button that triggers it.
+ */
+function RejectSheet({
+  orderId,
+  shortId,
+  onDone,
+  setDismissible,
+}: {
+  orderId: string
+  shortId: string
+  onDone: (value?: { refunded: boolean }) => void
+  setDismissible: SetDismissible
+}) {
+  const [reason, setReason] = useState<RejectReason | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    if (!reason) return
+    setBusy(true)
+    setDismissible(false)
+    setError(null)
+    try {
+      onDone(await rejectOrder(orderId, reason))
+    } catch (e) {
+      setError(errorText(e, 'Could not reject this order.'))
+      setBusy(false)
+      setDismissible(true)
+    }
+  }
+
+  return (
+    <div className="px-5 pb-6 pt-1">
+      <h2 className="t-h2">Reject order #{shortId.length > 6 ? shortId.slice(-6) : shortId}?</h2>
+      <p className="t-body mt-1.5">
+        The customer is refunded in full to their Blorbmart wallet straight away, and told why.
+      </p>
+
+      <p className="t-overline mb-2 mt-5">Reason</p>
+      <div role="radiogroup" className="space-y-2">
+        {REJECT_REASONS.map((option) => {
+          const chosen = reason === option.id
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={chosen}
+              disabled={busy}
+              onClick={() => {
+                haptic.selection()
+                setReason(option.id)
+              }}
+              className="press flex min-h-[52px] w-full items-center gap-3 rounded-[14px] px-4 text-left transition-colors"
+              style={{
+                background: chosen ? 'var(--color-danger-soft)' : 'var(--color-surface)',
+                border: `1.3px solid ${chosen ? 'var(--color-danger)' : 'var(--color-line)'}`,
+              }}
+            >
+              <Icon
+                name={chosen ? 'round/check_circle' : 'round/radio_button_unchecked'}
+                size={20}
+                color={chosen ? 'var(--color-danger)' : 'var(--color-ink-faint)'}
+              />
+              <span className="t-label-lg flex-1">{option.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {error && (
+        <p role="alert" className="t-body-sm mt-4 rounded-[12px] bg-danger-soft px-4 py-3 font-semibold text-danger">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-6 flex gap-3">
+        <BlorbButton label="Keep it" kind="outline" size="md" onClick={busy ? null : () => onDone()} />
+        <BlorbButton
+          label={reason ? 'Reject and refund' : 'Choose a reason'}
+          kind="danger"
+          size="md"
+          busy={busy}
+          onClick={reason && !busy ? () => void submit() : null}
+        />
+      </div>
     </div>
   )
 }

@@ -1,16 +1,16 @@
 /**
- * The Blorbmart alert, on the web — the same sound the Android apps play for
- * a new order or a new job (public/sounds/blorbmart-alert.wav).
+ * The new-order sound on the web: the same file the Android app plays
+ * (public/sounds/blorbmart_vendor_new_order.mp3, res/raw on Android).
  *
  * Browsers refuse to start sound before the page has had a tap or a key
  * press. `primeAlertSound` plays the file silently on the first one, which
- * unlocks it, so a later order can ring with nobody touching the screen.
+ * unlocks it, so a later alert can ring with nobody touching the screen.
  * An alert that repeats stops on the next tap anywhere, or after `repeatFor`.
  *
  * Only the open tab can ring. A closed tab gets the browser's own
  * notification sound, which no web page can change.
  */
-const SRC = '/sounds/blorbmart-alert.wav'
+const SRC = '/sounds/blorbmart_vendor_new_order.mp3'
 
 let audio: HTMLAudioElement | null = null
 let unlocked = false
