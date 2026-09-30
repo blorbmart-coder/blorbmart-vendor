@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useCallback, useState, type CSSProperties } from 'react'
 import { signOut } from '../../app/session'
 import { useNav } from '../../app/stack'
 import logo from '../../assets/logo-mark.png'
@@ -8,6 +8,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { FadeSlideIn } from '../../components/motion'
 import { confirmBlorb, toast } from '../../components/overlay'
 import { Card, Pill } from '../../components/ui'
+import { LegalViewer, SUPPORT_EMAIL, supportEmailUrl, supportWhatsAppUrl, type LegalDoc } from '../../components/LegalViewer'
 import { BUSINESS, hoursLabel, isOpenNow, type StoreProfile } from '../../data/models'
 import { useStore } from '../../data/storeRepo'
 import { compactCount } from '../../lib/format'
@@ -15,7 +16,7 @@ import { showCampusSheet } from './CampusSheet'
 import { Group, Tile } from './SettingsList'
 import { pickStoreMedia } from './StoreMedia'
 
-const WHATSAPP = `https://wa.me/2349022594853?text=${encodeURIComponent('Hello Blorbmart, I am a vendor and I need help')}`
+const WHATSAPP = supportWhatsAppUrl('Hello Blorbmart, I am a vendor and I need help')
 
 /** A link out, opened with no way back into this page. */
 function openExternal(url: string) {
@@ -28,6 +29,8 @@ export default function ProfileScreen() {
   const nav = useNav()
   const store = useStore()
   const [leaving, setLeaving] = useState(false)
+  const [legal, setLegal] = useState<LegalDoc | null>(null)
+  const closeLegal = useCallback(() => setLegal(null), [])
 
   const leave = async () => {
     const confirmed = await confirmBlorb({
@@ -123,7 +126,26 @@ export default function ProfileScreen() {
               subtitle="We answer on WhatsApp"
               onClick={() => openExternal(WHATSAPP)}
             />
-            <Tile icon="round/help_outline" label="Vendor guide" onClick={() => openExternal('https://blorbmart.com/vendors')} />
+            <Tile
+              icon="round/mail_outline"
+              label="Email us"
+              subtitle={SUPPORT_EMAIL}
+              onClick={() => window.location.assign(supportEmailUrl('Vendor support'))}
+            />
+            <Tile icon="round/help_outline" label="Vendor guide" onClick={() => openExternal('https://www.blorbmart.com.ng/#sell')} />
+          </Group>
+
+          <div className="h-4" />
+          {/* Google Play wants the privacy policy and account deletion inside the app. */}
+          <Group title="Legal">
+            <Tile icon="outlined/description" label="Terms and conditions" onClick={() => setLegal('terms')} />
+            <Tile icon="outlined/privacy_tip" label="Privacy policy" onClick={() => setLegal('privacy')} />
+            <Tile
+              icon="outlined/person_remove"
+              label="Delete my account"
+              subtitle="How to close your account and remove your data"
+              onClick={() => setLegal('delete-account')}
+            />
           </Group>
 
           <div className="h-4" />
@@ -137,6 +159,7 @@ export default function ProfileScreen() {
           </div>
         </div>
       </PageBody>
+      <LegalViewer doc={legal} onClose={closeLegal} />
     </Page>
   )
 }
