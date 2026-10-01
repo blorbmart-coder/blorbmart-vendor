@@ -362,6 +362,14 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
             <Pill label={timeAgo(asDate(data.createdAt))} dense />
           </div>
           <p className="t-body-sm mt-1">{asString(data.customerName, 'Customer')}</p>
+          {/* A scheduled order reaches this tab shortly before its time. The
+              kitchen cooks to the customer's time, not to when it came in. */}
+          {asString(data.fulfillmentType) === 'scheduled' && asString(data.scheduledLabel) && (
+            <p className="t-caption-sm mt-1 inline-flex items-center gap-1 rounded-[8px] bg-brand-soft px-2 py-1 font-extrabold text-brand-ink">
+              <Icon name="round/schedule" size={14} />
+              Deliver by {asString(data.scheduledLabel)}
+            </p>
+          )}
         </div>
         <div className="flex flex-col items-end">
           <p className="t-price" style={{ fontSize: 17 }}>
