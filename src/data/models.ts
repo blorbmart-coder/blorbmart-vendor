@@ -169,10 +169,8 @@ export interface StoreProfile {
   universityName: string
   latitude: number | null
   longitude: number | null
-  openingHour: number
-  closingHour: number
-  /** ISO weekday numbers, 1 = Monday. */
-  openDays: number[]
+  /** Always seven rows, Monday first. */
+  weeklyHours: DayHours[]
   prepMinutes: number
   minOrder: number
   deliveryFee: number
@@ -187,6 +185,88 @@ export interface StoreProfile {
   /** Persisted so a vendor who leaves halfway resumes on the same step. */
   onboardingStep: number
   onboardingComplete: boolean
+}
+
+/**
+ * One day's trading hours, as the `weeklyHours` field stores it. A close that
+ * is not after the open runs past midnight, into the next morning.
+ */
+export interface DayHours {
+  day: string
+  open: boolean
+  /** "HH:mm". */
+  from: string
+  to: string
+}
+
+export const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+const hhmm = (hour: number) => `${String(hour % 24).padStart(2, '0')}:00`
+
+const minutesOf = (value: string) => {
+  const [h, m] = value.split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+/** Index into a Monday-first week. */
+const todayIndex = (now: Date) => (now.getDay() + 6) % 7
+
+function weekFromHours(opening: number, closing: number, openDays: number[]): DayHours[] {
+  return WEEK_DAYS.map((day, i) => ({
+    day,
+    open: openDays.includes(i + 1),
+    from: hhmm(opening),
+    to: hhmm(closing),
+  }))
+}
+
+/** A store with no `weeklyHours` still trades on the older single-window fields. */
+function weekFromDoc(m: DocumentData): DayHours[] {
+  const rows: unknown = m.weeklyHours
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return weekFromHours(
+      clamp(asInt(m.openingHour, 8), 0, 23),
+      clamp(asInt(m.closingHour, 22), 1, 24),
+      Array.isArray(m.openDays) ? m.openDays.map((e: unknown) => asInt(e)) : [1, 2, 3, 4, 5, 6, 7],
+    )
+  }
+  return WEEK_DAYS.map((day) => {
+    const row: unknown = rows.find((r: unknown) => isRecord(r) && r.day === day)
+    // A day with no row is closed, which is how the backend reads it too.
+    if (!isRecord(row)) return { day, open: false, from: '08:00', to: '22:00' }
+    return { day, open: row.open !== false, from: asString(row.from, '00:00'), to: asString(row.to, '00:00') }
+  })
+}
+
+/**
+ * The hours as stored. `openingHour`, `closingHour` and `openDays` stay written
+ * for builds that predate `weeklyHours`, holding the widest window of the week.
+ *
+ * `weeklyHours` itself is left empty when one window covers all seven days, so
+ * a vendor who never varies their hours can still change them from an older
+ * vendor build, which only writes the single-window fields.
+ */
+function hoursToFirestore(week: DayHours[]): DocumentData {
+  const open = week.filter((row) => row.open)
+  // Only stale data can have every day shut; the editor keeps one open.
+  if (open.length === 0) return { weeklyHours: week, openDays: [] }
+
+  const closes = open.map((row) => {
+    const from = minutesOf(row.from)
+    const to = minutesOf(row.to)
+    return to <= from ? to + 24 * 60 : to
+  })
+  const latest = Math.ceil(Math.max(...closes) / 60)
+  const plain =
+    open.length === 7 &&
+    week.every((row) => row.from === week[0].from && row.to === week[0].to && !/:(?!00)/.test(row.from + row.to))
+
+  return {
+    weeklyHours: plain ? [] : week,
+    openingHour: Math.floor(Math.min(...open.map((row) => minutesOf(row.from))) / 60),
+    closingHour: latest > 24 ? latest - 24 : latest,
+    openDays: week.flatMap((row, i) => (row.open ? [i + 1] : [])),
+  }
 }
 
 export const blankStore: StoreProfile = {
@@ -207,9 +287,7 @@ export const blankStore: StoreProfile = {
   universityName: '',
   latitude: null,
   longitude: null,
-  openingHour: 8,
-  closingHour: 22,
-  openDays: [1, 2, 3, 4, 5, 6, 7],
+  weeklyHours: weekFromHours(8, 22, [1, 2, 3, 4, 5, 6, 7]),
   prepMinutes: 25,
   minOrder: 0,
   deliveryFee: 0,
@@ -257,9 +335,7 @@ export function storeFromDoc(id: string, m: DocumentData): StoreProfile {
     universityName: asString(m.universityName),
     latitude,
     longitude,
-    openingHour: clamp(asInt(m.openingHour, 8), 0, 23),
-    closingHour: clamp(asInt(m.closingHour, 22), 1, 24),
-    openDays: Array.isArray(m.openDays) ? m.openDays.map((e: unknown) => asInt(e)) : [1, 2, 3, 4, 5, 6, 7],
+    weeklyHours: weekFromDoc(m),
     prepMinutes: asInt(m.prepTimeMins, 25),
     minOrder: asDouble(m.minOrder),
     deliveryFee: asDouble(m.deliveryFee),
@@ -300,9 +376,7 @@ export function storeToFirestore(s: StoreProfile): DocumentData {
     // a draft read before the campus was set would otherwise wipe it.
     ...(s.universityId ? { universityId: s.universityId, universityName: s.universityName } : {}),
     ...(s.latitude != null && s.longitude != null ? { location: new GeoPoint(s.latitude, s.longitude) } : {}),
-    openingHour: s.openingHour,
-    closingHour: s.closingHour,
-    openDays: s.openDays,
+    ...hoursToFirestore(s.weeklyHours),
     prepTimeMins: s.prepMinutes,
     minOrder: s.minOrder,
     deliveryFee: s.deliveryFee,
@@ -326,17 +400,59 @@ export function missingForLaunch(s: StoreProfile): string[] {
 }
 
 export function isOpenNow(s: StoreProfile, now = new Date()): boolean {
-  if (!s.isActive || !s.isOpen) return false
-  const weekday = now.getDay() === 0 ? 7 : now.getDay()
-  if (!s.openDays.includes(weekday)) return false
-  const hour = now.getHours()
-  if (s.closingHour > s.openingHour) return hour >= s.openingHour && hour < s.closingHour
-  return hour >= s.openingHour || hour < s.closingHour
+  return s.isActive && s.isOpen && currentShift(s.weeklyHours, now) !== null
 }
 
-export function hoursLabel(s: StoreProfile): string {
-  const fmt = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'pm' : 'am'}`
-  return `${fmt(s.openingHour)} – ${fmt(s.closingHour === 24 ? 0 : s.closingHour)}`
+/** The row a store is trading on at `now`, which after midnight can be yesterday's. */
+export function currentShift(week: DayHours[], now = new Date()): DayHours | null {
+  const minute = now.getHours() * 60 + now.getMinutes()
+  const today = week[todayIndex(now)]
+  if (today.open) {
+    const from = minutesOf(today.from)
+    const to = minutesOf(today.to)
+    if (minute >= from && (to <= from || minute < to)) return today
+  }
+  const yesterday = week[(todayIndex(now) + 6) % 7]
+  if (!yesterday.open) return null
+  const from = minutesOf(yesterday.from)
+  const to = minutesOf(yesterday.to)
+  return to <= from && minute < to ? yesterday : null
+}
+
+/** "8am", or "8:30am" when a row holds minutes. */
+export function timeLabel(hhmm: string): string {
+  const minutes = minutesOf(hhmm)
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${h % 12 === 0 ? 12 : h % 12}${m ? `:${String(m).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`
+}
+
+const rowLabel = (row: DayHours) => `${timeLabel(row.from)} – ${timeLabel(row.to)}`
+
+/** Today's hours. */
+export function hoursLabel(s: StoreProfile, now = new Date()): string {
+  const today = s.weeklyHours[todayIndex(now)]
+  return today.open ? rowLabel(today) : 'closed today'
+}
+
+/** The week in a line: "Mon–Fri 8am – 10pm · Sat 10am – 4pm · Sun closed". */
+export function weekSummary(week: DayHours[]): string {
+  const text = (row: DayHours) => (row.open ? rowLabel(row) : 'closed')
+  if (week.every((row) => text(row) === text(week[0]))) return `${text(week[0])}, every day`
+
+  const runs: { first: number; last: number }[] = []
+  week.forEach((row, i) => {
+    const run = runs[runs.length - 1]
+    if (run && text(week[run.last]) === text(row)) run.last = i
+    else runs.push({ first: i, last: i })
+  })
+  const short = (i: number) => WEEK_DAYS[i].slice(0, 3)
+  return runs
+    .map(({ first, last }) => {
+      const days = first === last ? short(first) : `${short(first)}–${short(last)}`
+      return `${days} ${text(week[first])}`
+    })
+    .join(' · ')
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

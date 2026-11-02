@@ -7,7 +7,15 @@ import { Icon, type IconName } from '../../components/Icon'
 import { FadeSlideIn, LivePulse, SwapIn } from '../../components/motion'
 import { Switch } from '../../components/Switch'
 import { Card, Empty, Skeleton } from '../../components/ui'
-import { BUSINESS, hoursLabel, isOpenNow, missingForLaunch, type StoreProfile } from '../../data/models'
+import {
+  BUSINESS,
+  currentShift,
+  hoursLabel,
+  isOpenNow,
+  missingForLaunch,
+  timeLabel,
+  type StoreProfile,
+} from '../../data/models'
 import { storeRepo, useStore } from '../../data/storeRepo'
 import { db } from '../../lib/db'
 import { asDouble, money } from '../../lib/format'
@@ -98,7 +106,8 @@ function Greeting({ store }: { store: StoreProfile | null }) {
 function OpenSwitch({ store }: { store: StoreProfile }) {
   const open = isOpenNow(store)
   const manuallyClosed = store.isActive && !store.isOpen
-  const closes = hoursLabel(store).split('–').pop()?.trim()
+  const shift = currentShift(store.weeklyHours)
+  const closes = shift ? timeLabel(shift.to) : ''
 
   return (
     <div

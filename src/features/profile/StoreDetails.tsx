@@ -2,7 +2,7 @@ import { useNav } from '../../app/stack'
 import { AppBar, Page, PageBody } from '../../components/AppBar'
 import { FadeSlideIn } from '../../components/motion'
 import { toast } from '../../components/overlay'
-import { BUSINESS, hoursLabel, type StoreProfile } from '../../data/models'
+import { BUSINESS, weekSummary, type StoreProfile } from '../../data/models'
 import { useStore } from '../../data/storeRepo'
 import { money } from '../../lib/format'
 import { STORE_SECTIONS, type SectionKey } from '../onboarding/sections'
@@ -15,10 +15,8 @@ function summary(store: StoreProfile, key: SectionKey): string {
       return store.name || 'Add your business name'
     case 'location':
       return [store.address, store.city].filter(Boolean).join(', ') || 'Add the address riders come to'
-    case 'hours': {
-      const days = store.openDays.length === 7 ? 'every day' : `${store.openDays.length} days a week`
-      return `${hoursLabel(store)}, ${days}`
-    }
+    case 'hours':
+      return weekSummary(store.weeklyHours)
     case 'fulfilment':
       return store.minOrder > 0
         ? `${store.prepMinutes} min prep · ${money(store.minOrder)} minimum`

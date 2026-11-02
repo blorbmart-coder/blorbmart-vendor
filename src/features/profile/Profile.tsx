@@ -9,7 +9,7 @@ import { FadeSlideIn } from '../../components/motion'
 import { confirmBlorb, toast } from '../../components/overlay'
 import { Card, Pill } from '../../components/ui'
 import { LegalViewer, SUPPORT_EMAIL, supportEmailUrl, supportWhatsAppUrl, type LegalDoc } from '../../components/LegalViewer'
-import { BUSINESS, hoursLabel, isOpenNow, type StoreProfile } from '../../data/models'
+import { BUSINESS, isOpenNow, weekSummary, type StoreProfile } from '../../data/models'
 import { useStore } from '../../data/storeRepo'
 import { compactCount } from '../../lib/format'
 import { showCampusSheet } from './CampusSheet'
@@ -102,7 +102,7 @@ export default function ProfileScreen() {
               <Tile
                 icon="round/schedule"
                 label="Opening hours"
-                subtitle={hoursLabel(store)}
+                subtitle={weekSummary(store.weeklyHours)}
                 onClick={() => void nav.push('/store/details/hours')}
               />
             )}

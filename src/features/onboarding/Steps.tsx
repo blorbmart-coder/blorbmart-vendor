@@ -10,7 +10,14 @@ import { Slider } from '../../components/Slider'
 import { Spinner } from '../../components/Spinner'
 import { Switch } from '../../components/Switch'
 import { Pill } from '../../components/ui'
-import { BUSINESS, BUSINESS_TYPES, hoursLabel, type BusinessType, type StoreProfile } from '../../data/models'
+import {
+  BUSINESS,
+  BUSINESS_TYPES,
+  weekSummary,
+  type BusinessType,
+  type DayHours,
+  type StoreProfile,
+} from '../../data/models'
 import { etaWindow } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 
@@ -287,62 +294,84 @@ export function StepLocation({
 
 /* ── Step 4 — hours ────────────────────────────────────────────────────── */
 
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
 export function StepHours({ store, onChange }: { store: StoreProfile; onChange: (s: StoreProfile) => void }) {
-  const toggleDay = (day: number) => {
+  const week = store.weeklyHours
+  const setDay = (index: number, patch: Partial<DayHours>) =>
+    onChange({ ...store, weeklyHours: week.map((row, i) => (i === index ? { ...row, ...patch } : row)) })
+
+  const toggleDay = (index: number, open: boolean) => {
     haptic.selection()
-    let days = [...store.openDays]
-    if (days.includes(day)) {
-      // At least one day stays on, or the store could never open and the
-      // vendor would not know why.
-      if (days.length > 1) days = days.filter((d) => d !== day)
-    } else {
-      days.push(day)
+    // At least one day stays on, or the store could never open and the
+    // vendor would not know why.
+    if (!open && week.filter((row) => row.open).length === 1) {
+      toast('Keep at least one day open.')
+      return
     }
-    onChange({ ...store, openDays: days.sort((a, b) => a - b) })
+    setDay(index, { open })
+  }
+
+  const firstOpen = week.find((row) => row.open)
+  const copyToAll = () => {
+    if (!firstOpen) return
+    haptic.selection()
+    onChange({
+      ...store,
+      weeklyHours: week.map((row) => (row.open ? { ...row, from: firstOpen.from, to: firstOpen.to } : row)),
+    })
   }
 
   return (
     <StepBody>
       <h3 className="t-h3">Opening hours</h3>
       <p className="t-body-sm mt-1">
-        Outside these hours your store shows as closed, so orders stop arriving automatically.
+        Set each day on its own. Outside these hours your store shows as closed, so orders stop arriving automatically.
       </p>
-      <div className="mt-4 flex gap-3">
-        <HourPicker label="Opens" hour={store.openingHour} onChange={(h) => onChange({ ...store, openingHour: h })} />
-        <HourPicker label="Closes" hour={store.closingHour} onChange={(h) => onChange({ ...store, closingHour: h })} />
+      <div className="mt-4 flex flex-col gap-2.5">
+        {week.map((row, i) => (
+          <div key={row.day} className="rounded-[14px] bg-sunken p-3">
+            <div className="flex items-center gap-3">
+              <p className="t-label flex-1 text-ink">{row.day}</p>
+              <span className="t-caption-sm">{row.open ? 'Open' : 'Closed'}</span>
+              <Switch
+                checked={row.open}
+                label={`Open on ${row.day}`}
+                onChange={(open) => toggleDay(i, open)}
+              />
+            </div>
+            {row.open && (
+              <>
+                <div className="mt-2.5 flex gap-3">
+                  <HourPicker
+                    label="Opens"
+                    day={row.day}
+                    hour={hourOf(row.from)}
+                    onChange={(h) => setDay(i, { from: timeOf(h) })}
+                  />
+                  <HourPicker
+                    label="Closes"
+                    day={row.day}
+                    hour={hourOf(row.to)}
+                    onChange={(h) => setDay(i, { to: timeOf(h) })}
+                  />
+                </div>
+                {hourOf(row.to) !== 0 && hourOf(row.to) < hourOf(row.from) && (
+                  <p className="t-caption-sm mt-2">Runs past midnight into the next morning.</p>
+                )}
+              </>
+            )}
+          </div>
+        ))}
       </div>
+      {firstOpen && (
+        <div className="mt-3">
+          <TextButton onClick={copyToAll}>
+            Copy {firstOpen.day}'s hours to all open days
+          </TextButton>
+        </div>
+      )}
       <div className="mt-3 flex items-center gap-2.5 rounded-[10px] bg-sunken p-3">
         <Icon name="round/schedule" size={17} color="var(--color-ink-muted)" />
-        <p className="t-caption-sm flex-1">Customers see: {hoursLabel(store)}</p>
-      </div>
-      <h3 className="t-h3 mt-7">Days you open</h3>
-      <div className="mt-3 flex gap-1.5">
-        {DAY_LABELS.map((label, i) => {
-          const active = store.openDays.includes(i + 1)
-          return (
-            <button
-              key={DAY_NAMES[i]}
-              type="button"
-              title={DAY_NAMES[i]}
-              aria-label={DAY_NAMES[i]}
-              aria-pressed={active}
-              onClick={() => toggleDay(i + 1)}
-              className="press t-label grid h-[46px] min-w-0 flex-1 place-items-center rounded-[10px] transition-colors duration-200"
-              style={
-                {
-                  '--ps': 0.9,
-                  background: active ? 'var(--color-brand)' : 'var(--color-sunken)',
-                  color: active ? '#fff' : 'var(--color-ink-faint)',
-                } as CSSProperties
-              }
-            >
-              {label}
-            </button>
-          )
-        })}
+        <p className="t-caption-sm flex-1">{weekSummary(week)}</p>
       </div>
       <div className="mt-7">
         <SwitchRow
@@ -357,13 +386,27 @@ export function StepHours({ store, onChange }: { store: StoreProfile; onChange: 
 }
 
 const hourText = (h: number) => `${h % 12 === 0 ? 12 : h % 12}:00 ${h >= 12 && h < 24 ? 'PM' : 'AM'}`
+const hourOf = (hhmm: string) => Number(hhmm.split(':')[0]) % 24
+const timeOf = (hour: number) => `${String(hour).padStart(2, '0')}:00`
 
-function HourPicker({ label, hour, onChange }: { label: string; hour: number; onChange: (h: number) => void }) {
+function HourPicker({
+  label,
+  day,
+  hour,
+  onChange,
+}: {
+  label: string
+  day: string
+  hour: number
+  onChange: (h: number) => void
+}) {
   const open = async () => {
     const picked = await showSheet<number>(
       (close) => (
         <div className="pb-safe flex h-[320px] flex-col">
-          <h3 className="t-h3 text-center">{label} at</h3>
+          <h3 className="t-h3 text-center">
+            {day}: {label.toLowerCase()} at
+          </h3>
           <div className="scroll-y mt-2 min-h-0 flex-1">
             {Array.from({ length: 24 }, (_, i) => (
               <button
@@ -390,10 +433,11 @@ function HourPicker({ label, hour, onChange }: { label: string; hour: number; on
       <button
         type="button"
         onClick={() => void open()}
-        className="press mt-2 flex h-[54px] w-full items-center rounded-[14px] bg-sunken px-4 text-left"
+        aria-label={`${day} ${label.toLowerCase()} at ${hourText(hour)}`}
+        className="press mt-1.5 flex h-[46px] w-full items-center rounded-[12px] bg-surface px-3 text-left"
         style={{ '--ps': 0.97, border: '1px solid var(--color-line-strong)' } as CSSProperties}
       >
-        <span className="t-h4 flex-1">{hourText(hour)}</span>
+        <span className="t-label flex-1 text-ink">{hourText(hour)}</span>
         <Icon name="round/keyboard_arrow_down" color="var(--color-ink-faint)" />
       </button>
     </div>
