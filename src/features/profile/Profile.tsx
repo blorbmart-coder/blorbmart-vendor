@@ -109,6 +109,16 @@ export default function ProfileScreen() {
           </Group>
 
           <div className="h-4" />
+          <Group title="Customers">
+            <Tile
+              icon="round/star"
+              label="Ratings and feedback"
+              subtitle="Your stars, praise and complaints"
+              onClick={() => void nav.push('/store/ratings')}
+            />
+          </Group>
+
+          <div className="h-4" />
           <Group title="Money">
             <Tile
               icon="outlined/account_balance_wallet"
