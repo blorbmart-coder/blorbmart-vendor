@@ -6,6 +6,7 @@ import { App } from './app/App'
 import { isPublicPath, preload } from './app/routes'
 import { authReady } from './lib/authState'
 import { auth } from './lib/firebase'
+import { startSeasonalIcon } from './lib/seasonalIcon'
 
 // iOS only applies :active — the press-scale on every tap — to a page that
 // listens for touches.
@@ -57,3 +58,6 @@ async function boot() {
 void boot()
 
 registerSW({ immediate: true })
+
+// The tab icon follows the season an admin has scheduled.
+void startSeasonalIcon()
