@@ -34,6 +34,16 @@ interface Service {
   min: number
   max: number
   fee: number
+  /** Large bills pay per started block of value; null = `fee` is the whole fee. */
+  feeRule: { flat: number; every: number; perBlock: number } | null
+}
+
+/** The fee on a purchase of `amount` naira, as the backend will charge it. */
+const feeOf = (s: Service | null | undefined, amount: number): number => {
+  if (!s) return 0
+  const r = s.feeRule
+  if (!r || r.every <= 0) return s.fee
+  return r.flat + Math.max(1, Math.ceil(amount / r.every)) * r.perBlock
 }
 
 interface Plan {
@@ -93,6 +103,14 @@ const serviceFrom = (m: Record<string, unknown>): Service => ({
   min: num(m.min),
   max: num(m.max),
   fee: num(m.fee),
+  feeRule:
+    m.feeRule && typeof m.feeRule === 'object' && num((m.feeRule as Record<string, unknown>).every) > 0
+      ? {
+          flat: num((m.feeRule as Record<string, unknown>).flat),
+          every: num((m.feeRule as Record<string, unknown>).every),
+          perBlock: num((m.feeRule as Record<string, unknown>).perBlock),
+        }
+      : null,
 })
 
 const paymentFrom = (m: Record<string, unknown>): Payment => ({
@@ -288,7 +306,7 @@ export default function BillsPage() {
   }
 
   const value = plan ? plan.amount : Number(amount) || 0
-  const fee = service?.fee ?? 0
+  const fee = feeOf(service, value)
   const total = value + fee
   const available = wallet?.availableBalance ?? 0
   const periods = periodsOf(plans ?? [])
@@ -316,7 +334,7 @@ export default function BillsPage() {
         <PlanDetailsSheet
           plan={p}
           networkName={service?.name ?? ''}
-          fee={fee}
+          fee={feeOf(service, p.amount)}
           isSelected={plan?.code === p.code}
           onChoose={() => close(true)}
         />
