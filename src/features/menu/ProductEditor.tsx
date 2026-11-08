@@ -34,6 +34,7 @@ import { money, parseAmount, titleCase } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
 import { showCampusSheet } from '../profile/CampusSheet'
 import { showAddonEditor } from './AddonEditor'
+import { showStockPhotoSheet } from './StockPhotoSheet'
 
 /**
  * Adding or editing one product — the contract between the two apps.
@@ -157,6 +158,22 @@ function Editor({ existing, store }: { existing: ProductDraft | null; store: Sto
     })
   }
 
+  /** One of Blorbmart's stock photos, for a vendor with no picture of their own. */
+  const addStockPhoto = async () => {
+    if (images.length >= 5) {
+      toast('Five photos is the limit.')
+      return
+    }
+    const photo = await showStockPhotoSheet(name)
+    if (!photo) return
+    if (images.includes(photo.url)) {
+      toast('That photo is already on this item.')
+      return
+    }
+    setImages((prev) => [...prev, photo.url].slice(0, 5))
+    if (!name.trim()) setName(photo.title)
+  }
+
   const save = async () => {
     if (errors.length) {
       setShowErrors(true)
@@ -232,6 +249,16 @@ function Editor({ existing, store }: { existing: ProductDraft | null; store: Sto
             onRemove={(i) => setImages((prev) => prev.filter((_, j) => j !== i))}
             onMakeCover={(i) => setImages((prev) => [prev[i], ...prev.filter((_, j) => j !== i)])}
           />
+          {store.type === 'restaurant' && (
+            <button
+              type="button"
+              onClick={() => void addStockPhoto()}
+              className="press mt-3 flex items-center gap-2 text-left"
+            >
+              <Icon name="outlined/image" size={18} color="var(--color-brand)" />
+              <span className="t-caption-sm font-bold text-brand">No photo? Use a Blorbmart photo</span>
+            </button>
+          )}
 
           <div className="h-7" />
           <SectionLabel title="The basics" required />
