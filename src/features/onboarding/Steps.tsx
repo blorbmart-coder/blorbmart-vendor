@@ -373,13 +373,15 @@ export function StepHours({ store, onChange }: { store: StoreProfile; onChange: 
         <Icon name="round/schedule" size={17} color="var(--color-ink-muted)" />
         <p className="t-caption-sm flex-1">{weekSummary(week)}</p>
       </div>
-      <div className="mt-7">
-        <SwitchRow
-          title="Accept pre-orders"
-          subtitle="Customers can order while you are closed, for later collection."
-          value={store.acceptsPreorder}
-          onChange={(v) => onChange({ ...store, acceptsPreorder: v })}
-        />
+      {/* Pre-orders used to be a switch here that only set a flag: customers
+          saw "preorder available" and had no way to choose a day. The real
+          settings (which days, last orders, a daily limit) have their own
+          screen, Store details → Pre-orders. */}
+      <div className="mt-7 flex items-start gap-2.5 rounded-[10px] bg-sunken p-3">
+        <Icon name="round/event" size={17} color="var(--color-ink-muted)" />
+        <p className="t-caption-sm flex-1">
+          Want customers to order ahead for the days you cook? Set it up any time under Store details → Pre-orders.
+        </p>
       </div>
     </StepBody>
   )
@@ -444,29 +446,6 @@ function HourPicker({
   )
 }
 
-function SwitchRow({
-  title,
-  subtitle,
-  value,
-  onChange,
-}: {
-  title: string
-  subtitle: string
-  value: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-center rounded-[14px] border border-line bg-surface p-4">
-      <div className="min-w-0 flex-1">
-        <p className="t-h4">{title}</p>
-        <p className="t-caption-sm mt-1">{subtitle}</p>
-      </div>
-      <div className="ml-3">
-        <Switch checked={value} onChange={onChange} label={title} />
-      </div>
-    </div>
-  )
-}
 
 /* ── Step 5 — fulfilment ───────────────────────────────────────────────── */
 

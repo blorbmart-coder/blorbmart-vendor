@@ -33,26 +33,75 @@ function readable(code: string | null, fallback: string): string {
 type FieldKey = 'firstName' | 'lastName' | 'business' | 'campus' | 'email' | 'phone' | 'password'
 
 /**
+ * What was typed, kept while the vendor goes to read the code. A phone short
+ * of memory throws the tab away while the email app is open, and the reload
+ * used to come back to an empty form, so they had to start again. Everything
+ * except the password, which is asked again instead of being written to the
+ * device. Gone after half an hour, which outlives the ten-minute code.
+ */
+const DRAFT_KEY = 'blorb.vendorSignupDraft'
+const DRAFT_TTL_MS = 30 * 60 * 1000
+
+interface Draft {
+  firstName: string
+  lastName: string
+  business: string
+  email: string
+  phone: string
+  campusId: string | null
+  otpSent: boolean
+  at: number
+}
+
+function readDraft(): Partial<Draft> {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') as Draft | null
+    if (!d || typeof d.at !== 'number' || Date.now() - d.at > DRAFT_TTL_MS) return {}
+    return d
+  } catch {
+    return {}
+  }
+}
+
+function writeDraft(d: Draft | null) {
+  try {
+    if (d) localStorage.setItem(DRAFT_KEY, JSON.stringify(d))
+    else localStorage.removeItem(DRAFT_KEY)
+  } catch {
+    /* private mode or storage blocked: the form still works, just unsaved */
+  }
+}
+
+/**
  * Vendor registration. Deliberately short: a person, a business name and a
  * way to reach them. Everything about the store itself is asked in
  * onboarding, where it saves step by step.
  */
 export default function SignupScreen() {
   const nav = useNav()
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [business, setBusiness] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  const [draft] = useState(readDraft)
+  const [firstName, setFirstName] = useState(draft.firstName ?? '')
+  const [lastName, setLastName] = useState(draft.lastName ?? '')
+  const [business, setBusiness] = useState(draft.business ?? '')
+  const [email, setEmail] = useState(draft.email ?? '')
+  const [phone, setPhone] = useState(draft.phone ?? '')
   const [password, setPassword] = useState('')
   const [otp, setOtp] = useState('')
-  const [campusId, setCampusId] = useState<string | null>(null)
+  const [campusId, setCampusId] = useState<string | null>(draft.campusId ?? null)
   const [options, setOptions] = useState<University[]>([])
   const [campusesLoading, setCampusesLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [otpSent, setOtpSent] = useState(false)
+  const [otpSent, setOtpSent] = useState(draft.otpSent ?? false)
+  // Back from a reload with the code already sent: the password was not
+  // kept, so its box stays open to be typed again.
+  const [passwordAgain] = useState(!!draft.otpSent)
   const [error, setError] = useState<string | null>(null)
   const form = useValidation<FieldKey>()
+
+  useEffect(() => {
+    const empty = !firstName && !lastName && !business && !email && !phone && !campusId
+    writeDraft(empty ? null : { firstName, lastName, business, email, phone, campusId, otpSent, at: Date.now() })
+  }, [firstName, lastName, business, email, phone, campusId, otpSent])
 
   useEffect(() => {
     let live = true
@@ -96,6 +145,11 @@ export default function SignupScreen() {
       setError('Enter the code from your email.')
       return
     }
+    const passwordProblem = Validate.password(password)
+    if (passwordProblem) {
+      setError(passwordProblem)
+      return
+    }
     setBusy(true)
     setError(null)
     const campus = cachedCampus(campusId)
@@ -117,6 +171,7 @@ export default function SignupScreen() {
       // onboarding rather than onto an empty dashboard.
       await storeRepo.start()
       await storeRepo.ensureStore(business.trim())
+      writeDraft(null)
       haptic.heavy()
       nav.reset('/onboarding')
     } catch (e) {
@@ -220,7 +275,8 @@ export default function SignupScreen() {
               hint="At least 8 characters"
               icon="outlined/lock"
               obscure
-              disabled={otpSent}
+              disabled={otpSent && !passwordAgain}
+              helper={passwordAgain && otpSent ? 'Enter your password again to finish.' : undefined}
               autoComplete="new-password"
               error={form.errors.password}
             />

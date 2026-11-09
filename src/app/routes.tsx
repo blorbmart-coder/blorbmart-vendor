@@ -25,6 +25,7 @@ const pages = {
   pin: lazyPage(() => import('../features/wallet/Pin')),
   bills: lazyPage(() => import('../features/wallet/Bills')),
   ratings: lazyPage(() => import('../features/profile/Ratings')),
+  preorders: lazyPage(() => import('../features/profile/Preorders')),
 }
 
 type PageKey = keyof typeof pages
@@ -93,6 +94,7 @@ export const routes: RouteObject[] = [
   { path: '/wallet/pin', element: guarded('pin') },
   { path: '/wallet/bills', element: guarded('bills') },
   { path: '/store/ratings', element: guarded('ratings') },
+  { path: '/store/preorders', element: guarded('preorders') },
   { path: '*', element: <NotFound /> },
 ]
 
@@ -107,6 +109,7 @@ export function parentOf(pathname: string): string | null {
   if (pathname.startsWith('/catalogue/')) return '/catalogue'
   if (pathname.startsWith('/events/') || pathname === '/scan') return '/catalogue'
   if (pathname === '/wallet' || pathname === '/store/details') return '/store'
+  if (pathname === '/store/preorders') return '/store/details'
   if (pathname.startsWith('/store/details/')) return '/store/details'
   if (pathname.startsWith('/wallet/')) return '/wallet'
   return null

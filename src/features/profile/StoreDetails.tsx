@@ -63,6 +63,14 @@ export default function StoreDetailsScreen() {
                     onClick={() => void nav.push(`/store/details/${section.key}`)}
                   />
                 ))}
+                {store.type !== 'events' && (
+                  <Tile
+                    icon="round/event"
+                    label="Pre-orders"
+                    subtitle={store.acceptsPreorder ? 'On · customers can order ahead' : 'Off · let customers order ahead'}
+                    onClick={() => void nav.push('/store/preorders')}
+                  />
+                )}
               </Group>
             </FadeSlideIn>
           )}

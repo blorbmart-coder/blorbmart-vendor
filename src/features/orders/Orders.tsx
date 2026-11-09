@@ -364,10 +364,10 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
           <p className="t-body-sm mt-1">{asString(data.customerName, 'Customer')}</p>
           {/* A scheduled order reaches this tab shortly before its time. The
               kitchen cooks to the customer's time, not to when it came in. */}
-          {asString(data.fulfillmentType) === 'scheduled' && asString(data.scheduledLabel) && (
+          {['scheduled', 'preorder'].includes(asString(data.fulfillmentType)) && asString(data.scheduledLabel) && (
             <p className="t-caption-sm mt-1 inline-flex items-center gap-1 rounded-[8px] bg-brand-soft px-2 py-1 font-extrabold text-brand-ink">
               <Icon name="round/schedule" size={14} />
-              Deliver by {asString(data.scheduledLabel)}
+              {asString(data.fulfillmentType) === 'preorder' ? 'Pre-order · ready by' : 'Deliver by'} {asString(data.scheduledLabel)}
             </p>
           )}
         </div>
@@ -376,6 +376,10 @@ function OrderCard({ id, data, stage }: { id: string; data: DocumentData; stage:
             {money(asDouble(data.subtotal))}
           </p>
           <p className="t-caption-sm mt-0.5">Your items</p>
+          {/* A store deal this store agreed to pay for comes off what it is paid. */}
+          {asDouble(data.storeFundedDiscount) > 0 && (
+            <p className="t-caption-sm mt-0.5 text-appetite-deep">−{money(asDouble(data.storeFundedDiscount))} your deal</p>
+          )}
         </div>
       </div>
 
