@@ -14,7 +14,9 @@ function summary(store: StoreProfile, key: SectionKey): string {
     case 'basics':
       return store.name || 'Add your business name'
     case 'location':
-      return [store.address, store.city].filter(Boolean).join(', ') || 'Add the address riders come to'
+      // No pin means a flat delivery fee on every order, so say so first.
+      if (store.latitude == null || store.longitude == null) return 'Not on the map yet · tap to pin your shop'
+      return [store.address, store.city].filter(Boolean).join(', ') || 'Pinned · add the address riders come to'
     case 'hours':
       return weekSummary(store.weeklyHours)
     case 'fulfilment':

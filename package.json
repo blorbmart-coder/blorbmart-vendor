@@ -16,6 +16,7 @@
     "firebase": "^12.18.0",
     "iconsax-react": "^0.0.8",
     "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3"
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@material-design-icons/svg": "^0.14.15",
     "@tailwindcss/vite": "^4.3.3",
+    "@types/leaflet": "^1.9.20",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

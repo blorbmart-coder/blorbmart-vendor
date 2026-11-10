@@ -20,6 +20,7 @@ import {
 } from '../../data/models'
 import { etaWindow } from '../../lib/format'
 import { haptic } from '../../lib/haptics'
+import PinPicker, { isUnreadable, type Pin, type Place } from '../../components/PinPicker'
 
 /** Every step shares identical padding and scroll behaviour. */
 function StepBody({ children }: { children: ReactNode }) {
@@ -203,58 +204,53 @@ export function StepBasics({ store, onChange }: { store: StoreProfile; onChange:
 
 /* ── Step 3 — location ─────────────────────────────────────────────────── */
 
-export function StepLocation({
-  store,
-  onChange,
-  onUseGps,
-}: {
-  store: StoreProfile
-  onChange: (s: StoreProfile) => void
-  onUseGps: () => Promise<void>
-}) {
-  const [locating, setLocating] = useState(false)
-  const pinned = store.latitude != null
-  const tone = pinned ? 'var(--color-success)' : 'var(--color-brand)'
+export function StepLocation({ store, onChange }: { store: StoreProfile; onChange: (s: StoreProfile) => void }) {
+  const pinned = store.latitude != null && store.longitude != null
+  const tone = pinned ? 'var(--color-success)' : 'var(--color-danger)'
 
-  const gps = async () => {
-    setLocating(true)
-    await onUseGps()
-    setLocating(false)
+  /*
+   * The pin is what delivery is priced and routed by; without one every order
+   * from this store pays the flat fee. The map opens on satellite so the
+   * vendor can put the pin on their own roof, and the words found for it
+   * fill the address only where it is empty or a code like "QH9W+RH2".
+   */
+  const onPin = (pin: Pin, place: Place | null) => {
+    const next: StoreProfile = { ...store, latitude: pin.lat, longitude: pin.lng }
+    if (place) {
+      if (isUnreadable(store.address)) next.address = place.line || place.label
+      if (!store.city.trim() && place.city) next.city = place.city
+      if (!store.state.trim() && place.state) next.state = place.state
+    }
+    onChange(next)
   }
 
   return (
     <StepBody>
-      <button
-        type="button"
-        disabled={locating}
-        onClick={() => void gps()}
-        className="press flex w-full items-center rounded-[14px] p-4 text-left"
-        style={
-          {
-            '--ps': 0.985,
-            background: pinned ? 'var(--color-success-soft)' : 'var(--color-brand-softer)',
-            border: `1px solid color-mix(in srgb, ${tone} 20%, transparent)`,
-          } as CSSProperties
-        }
+      <div
+        className="mb-4 flex items-start gap-3 rounded-[14px] p-3.5"
+        style={{
+          background: pinned ? 'var(--color-success-soft)' : 'var(--color-danger-soft)',
+          border: `1px solid color-mix(in srgb, ${tone} 22%, transparent)`,
+        }}
       >
-        <span className="grid h-[26px] w-[26px] shrink-0 place-items-center">
-          {locating ? (
-            <Spinner size={26} stroke={2.2} />
-          ) : (
-            <Icon name={pinned ? 'round/check_circle' : 'round/my_location'} size={23} color={tone} />
-          )}
-        </span>
-        <span className="ml-3.5 min-w-0 flex-1">
-          <span className="t-h4 block" style={{ color: pinned ? 'var(--color-success)' : 'var(--color-brand-ink)' }}>
-            {pinned ? 'Location pinned' : 'Use my current location'}
+        <Icon name={pinned ? 'round/check_circle' : 'round/error_outline'} size={22} color={tone} />
+        <span className="min-w-0 flex-1">
+          <span className="t-h4 block" style={{ color: tone }}>
+            {pinned ? 'Shop pinned on the map' : 'Pin your shop on the map'}
           </span>
           <span className="t-caption-sm mt-0.5 block">
             {pinned
-              ? 'Riders will be routed to this exact spot.'
-              : 'Stand at your shop and tap. It fills the fields below.'}
+              ? 'Delivery fees are worked out from here and riders are routed to it. Move the map to adjust.'
+              : 'Without a pin, customers pay a flat delivery fee and riders have to search for you. Tap the locate button at your shop, or move the map onto your roof.'}
           </span>
         </span>
-      </button>
+      </div>
+      <PinPicker
+        value={pinned ? { lat: store.latitude as number, lng: store.longitude as number } : null}
+        onChange={onPin}
+        height={320}
+        accent="#AFFF00"
+      />
       <div className="h-6" />
       <VendorField
         value={store.address}

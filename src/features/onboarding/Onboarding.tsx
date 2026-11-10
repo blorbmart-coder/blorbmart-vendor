@@ -11,7 +11,6 @@ import { BUSINESS, type StoreProfile } from '../../data/models'
 import { storeRepo } from '../../data/storeRepo'
 import { pickImages, prepareImage, uploadImage, UploadError } from '../../lib/cloudinary'
 import { writeFailure } from '../../lib/db'
-import { dropPin, LocationError } from '../../lib/geo'
 import { haptic } from '../../lib/haptics'
 import { sectionByKey, type StoreSection } from './sections'
 import { StepBasics, StepBranding, StepBusinessType, StepFulfilment, StepHours, StepLocation } from './Steps'
@@ -229,26 +228,6 @@ function Flow({
     })
   }
 
-  const pinLocation = async () => {
-    try {
-      const pin = await dropPin()
-      update((s) => ({
-        ...s,
-        latitude: pin.latitude,
-        longitude: pin.longitude,
-        address: pin.street || s.address,
-        city: pin.city || s.city,
-        state: pin.state || s.state,
-      }))
-      haptic.medium()
-      toast('Location pinned. Check the address reads right.', { tone: 'success' })
-    } catch (error) {
-      toast(error instanceof LocationError ? error.message : 'Could not get your location. Type the address instead.', {
-        tone: 'danger',
-      })
-    }
-  }
-
   const isLast = step === TOTAL - 1
   const optional = step >= 3
 
@@ -306,7 +285,7 @@ function Flow({
               }}
             />,
             <StepBasics key="basics" store={draft} onChange={setDraft} />,
-            <StepLocation key="location" store={draft} onChange={setDraft} onUseGps={pinLocation} />,
+            <StepLocation key="location" store={draft} onChange={setDraft} />,
             <StepHours key="hours" store={draft} onChange={setDraft} />,
             <StepFulfilment key="fulfilment" store={draft} onChange={setDraft} />,
             <StepBranding
